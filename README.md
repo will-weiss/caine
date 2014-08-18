@@ -21,9 +21,7 @@ square_printer()
 for i in xrange(1,11):
     square_printer.inbox.put(i)
 
-</code></pre>
-
-<pre><code>### Output
+### Output
 1 squared is: 1
 2 squared is: 4
 3 squared is: 9

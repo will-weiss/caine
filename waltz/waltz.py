@@ -34,37 +34,34 @@ class SupportingActor(object):
         print "Operation failed."
 
     @staticmethod
-    def listen(inbox, receive, callback, timeout, handle, _raise_timeout):
+    def listen(inbox, receive, callback, timeout, handle):
         """
         listens for incoming messages
         """
         try:
-            SupportingActor._listen(inbox, timeout, receive, _raise_timeout)
+            SupportingActor._listen(inbox, timeout, receive)
         except Timeout:
             callback()
         except not Timeout:
             handle()
 
     @staticmethod
-    def _raise_timeout(signum, frame):
-        raise Timeout
-
-    @staticmethod
-    def _listen(inbox, timeout, receive, _raise_timeout):
+    def _listen(inbox, timeout, receive):
         use_timeout = True if type(timeout) == int else False
-        if use_timeout: # Set alarm to raise a timeout after timeout seconds
-            signal.signal(signal.SIGALRM, _raise_timeout)
-            signal.alarm(timeout)
+        if use_timeout: signal.signal(signal.SIGALRM, _raise_timeout) # _raise_timeout is called when alarm goes off
         running = True
         while running:
+            if use_timeout: signal.alarm(timeout) # Set/Reset alarm
             message = inbox.get()
             if use_timeout: signal.alarm(0) # Alarm turned off when processing message
             receive(message)
-            if use_timeout: signal.alarm(timeout) # Alarm reset
-            
+    
     def __call__(self):
         """
         begin processing inbox
         """
-        self.process = Process(target = SupportingActor.listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self._raise_timeout])
+        self.process = Process(target = SupportingActor.listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle])
         self.process.start()
+
+def _raise_timeout(signum, frame):
+    raise Timeout

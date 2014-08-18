@@ -5,7 +5,7 @@ supporting actors offer concurrent inbox processing
 
 ### Install
 
-<pre><code>pip install git+ssh://git@github.com/will-weiss/waltz.git</code></pre>
+<pre><code>pip install git+git://github.com/will-weiss/waltz.git</code></pre>
 
 ### Usage
 

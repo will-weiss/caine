@@ -24,7 +24,7 @@ class SupportingActor(object):
     @staticmethod
     def listen(inbox, receive, callback, timeout, handle, _raise_timeout):
         try:
-            Actor._listen(inbox, timeout, receive, _raise_timeout)
+            SupportingActor._listen(inbox, timeout, receive, _raise_timeout)
         except Timeout:
             callback()
         except not Timeout:
@@ -48,5 +48,5 @@ class SupportingActor(object):
             if use_timeout: signal.alarm(timeout)
             
     def __call__(self):
-        self.process = Process(target = Actor.listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self._raise_timeout])
+        self.process = Process(target = SupportingActor.listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self._raise_timeout])
         self.process.start()

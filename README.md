@@ -38,6 +38,7 @@ No more messages in inbox.</code></pre>
 ### More Horsepower
 
 <pre><code>from waltz import SupportingCast
+import time
 
 def print_square(message, **actor_kwargs):
     import random

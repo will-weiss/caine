@@ -28,7 +28,7 @@ class SupportingActor(object):
     def instance_kwargs(self):
         instance_kwargs = {}
         for nm, val in self.__dict__.iteritems():
-            if not hasattr(val,'__call__'):
+            if (not hasattr(val,'__call__')) & (nm[0] != '_'):
                 instance_kwargs[nm] = val
         return instance_kwargs
 

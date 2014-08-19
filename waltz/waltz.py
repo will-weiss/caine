@@ -10,13 +10,13 @@ class SupportingActor(object):
         Additional keyword arguments are set as attributes
 
     """
-    import multiprocessing
-    from multiprocessing import Process, Queue, Lock, Pipe, Value, Manager
-    import signal
-    import time
-    from functools import partial
-    from gevent.timeout import Timeout
     def __init__(self, timeout = None, **kwargs):
+        import multiprocessing
+        from multiprocessing import Process, Queue, Lock, Pipe, Value, Manager
+        import signal
+        import time
+        from functools import partial
+        from gevent.timeout import Timeout
         self.inbox = Manager().Queue()
         self.timeout = timeout
         for nm, val in kwargs.iteritems(): setattr(self, nm, val)

@@ -151,10 +151,10 @@ class SupportingCast(SupportingActor):
             signal.alarm(timeout)
         while running_flag.value == 1:
             try:
-                if not error_queue.empty():                                   # If there is an exception in the error queue,
-                    (exc, message, actor_kwargs) = error_queue.get()          # we catch it,
-                    handle(exc, message, **actor_kwargs)                      # and raise it
-                    handling_error_flag.value = 0
+                if not error_queue.empty():                             # If there is an exception in the error queue,
+                    (exc, message, actor_kwargs) = error_queue.get()    # we catch, the message, and the actor keyword arguments,
+                    handle(exc, message, **actor_kwargs)                # and pass them to handle
+                    handling_error_flag.value = 0                       # When handle is complete the flag is turned off
                 if use_timeout:
                     if message_received_flag.value == 1: 
                         signal.alarm(timeout)               # Set/Reset alarm if some process received a message

@@ -1,13 +1,3 @@
-import multiprocessing
-from multiprocessing import Process, Queue, Lock, Pipe, Value, Manager
-import signal
-import time
-from functools import partial
-from gevent.timeout import Timeout
-
-def _raise_timeout(signum, frame):
-    raise Timeout
-
 class SupportingActor(object):
     """
     Data structure with operations for processing objects in its inbox.
@@ -20,6 +10,12 @@ class SupportingActor(object):
         Additional keyword arguments are set as attributes
 
     """
+    import multiprocessing
+    from multiprocessing import Process, Queue, Lock, Pipe, Value, Manager
+    import signal
+    import time
+    from functools import partial
+    from gevent.timeout import Timeout
     def __init__(self, timeout = None, **kwargs):
         self.inbox = Manager().Queue()
         self.timeout = timeout

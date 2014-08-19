@@ -54,6 +54,7 @@ class SupportingActor(object):
         """
         print "Error for message:"
         print message
+        print exc
         raise exc
 
     @staticmethod

@@ -1,3 +1,11 @@
+from multiprocessing import Process as mProcess
+from multiprocessing import Value as mValue
+from multiprocessing import Manager as mManager
+import signal
+from time import sleep as tsleep
+from functools import partial
+from gevent.timeout import Timeout
+
 class SupportingActor(object):
     """
     Data structure with operations for processing objects in its inbox.
@@ -11,13 +19,7 @@ class SupportingActor(object):
 
     """
     def __init__(self, timeout = None, **kwargs):
-        import multiprocessing
-        from multiprocessing import Process, Queue, Lock, Pipe, Value, Manager
-        import signal
-        import time
-        from functools import partial
-        from gevent.timeout import Timeout
-        self.inbox = Manager().Queue()
+        self.inbox = mManager().Queue()
         self.timeout = timeout
         for nm, val in kwargs.iteritems(): setattr(self, nm, val)
 
@@ -66,7 +68,7 @@ class SupportingActor(object):
         """
         listens for incoming messages, executes callback after Timeout exception, passes all other exceptions and the message that caused them to handle
         """
-        running_flag = Value('i', 1)                            # 1 if the process should be running, 0 otherwise
+        running_flag = mValue('i', 1)                            # 1 if the process should be running, 0 otherwise
         use_timeout = True if type(timeout) == int else False   # We use a timeout if timeout is an integer, otherwise not
         if use_timeout:
             # _callback is called when alarm goes off
@@ -87,7 +89,11 @@ class SupportingActor(object):
         """
         begin processing inbox
         """
-        self.process = Process(target = SupportingActor._listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.instance_kwargs])
+        if hasattr(self,'process'):
+            self.process.terminate()
+            while self.process.is_alive():
+                tsleep(.1)
+        self.process = mProcess(target = SupportingActor._listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.instance_kwargs])
         self.process.start()
 
 class SupportingCast(SupportingActor):
@@ -109,7 +115,7 @@ class SupportingCast(SupportingActor):
     @staticmethod
     def _listen(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, actor_kwargs):
         """
-        listens for incoming messages, executes callback after Timeout exception, passes all other exceptions and the message that caused them to handle
+        listens for incoming messages, passes exceptions and the message that caused them to handle
         """
         while running_flag.value == 1:
             try:                                        # Try to get a message
@@ -125,19 +131,19 @@ class SupportingCast(SupportingActor):
                 error_queue.put((exc, message, actor_kwargs))
                 handling_error_flag.value = 1
                 while handling_error_flag.value == 1:
-                    time.sleep(1)
+                    tsleep(1)
 
     @staticmethod
     def _direct(inbox, receive, callback, timeout, handle, num, instance_kwargs):
         """
         directs the process for using multiple actors to process a common inbox
         """
-        running_flag = Value('i', 1)            # This flag is toggled to zero to shut off individual actors
-        message_received_flag = Value('i', 0)   # This flag gets toggled to 1 when individual actors receive messages, which causes the director to reset the timeout alarm
-        handling_error_flag = Value('i', 0)     # This flag gets toggled to 1 when the director is handling an error
-        error_queue = Manager().Queue()         # This queue holds information about errors
+        running_flag = mValue('i', 1)            # This flag is toggled to zero to shut off individual actors
+        message_received_flag = mValue('i', 0)   # This flag gets toggled to 1 when individual actors receive messages, which causes the director to reset the timeout alarm
+        handling_error_flag = mValue('i', 0)     # This flag gets toggled to 1 when the director is handling an error
+        error_queue = mManager().Queue()         # This queue holds information about errors
 
-        actors = {i : Process(target = SupportingCast._listen, args = [inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_kwargs.items() + [('actor_id', i)])]) for i in xrange(num)}
+        actors = {i : mProcess(target = SupportingCast._listen, args = [inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_kwargs.items() + [('actor_id', i)])]) for i in xrange(num)}
         for actor in actors.values(): actor.start()
         use_timeout = True if type(timeout) == int else False # We use a timeout if timeout is an integer, otherwise not
         if use_timeout: 
@@ -145,7 +151,7 @@ class SupportingCast(SupportingActor):
             signal.alarm(timeout)
         while running_flag.value == 1:
             try:
-                if not error_queue.empty():                                   # If there is an exception in the error pipe,
+                if not error_queue.empty():                                   # If there is an exception in the error queue,
                     (exc, message, actor_kwargs) = error_queue.get()          # we catch it,
                     handle(exc, message, **actor_kwargs)                      # and raise it
                     handling_error_flag.value = 0
@@ -160,5 +166,10 @@ class SupportingCast(SupportingActor):
         """
         begin processing a shared inbox using multiple actors
         """
-        self.director = Process(target = SupportingCast._direct, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.num, self.instance_kwargs])
+        if hasattr(self,'director'):
+            self.director.terminate()
+            while self.director.is_alive():
+                tsleep(.1)
+        self.director = mProcess(target = SupportingCast._direct, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.num, self.instance_kwargs])
         self.director.start()
+

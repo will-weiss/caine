@@ -95,6 +95,7 @@ class SupportingActor(object):
                             running_flag.value = 0                              # flag inbox reception as not ongoing
                             break                                               # and break the listening process
                 if use_timeout: signal.alarm(0)                                 # Alarm turned off while running receive on message
+            
             except:                                                             # If any of the above fails
                 continue                                                        # start the while loop again to ensure that the listening process should continue.
             
@@ -163,6 +164,7 @@ class SupportingCast(SupportingActor):
                         if message == Cut:                      # and the message is Cut,
                             break                               # break the listening process.
                 message_received_flag.value = 1                 # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
+            
             except:                                             # If any of the above fails
                 continue                                        # start the while loop again to ensure that the listening process should continue.
             
@@ -170,7 +172,7 @@ class SupportingCast(SupportingActor):
             except Exception as exc:                            # If an exception is raised:
                 error_queue.put((exc, message, actor_kwargs))   # put it, the message, and the actor keyword arguments in the error queue
                 handling_error_flag.value = 1                   # and toggle the flag indicating that an error as being handled.
-                while handling_error_flag.value == 1:           # While the flag is toggled,
+                while handling_error_flag.value == 1:           # While the flag is toggled to 1,
                     time.sleep(1)                               # wait to proceed with the listening process.
 
     @staticmethod
@@ -189,8 +191,7 @@ class SupportingCast(SupportingActor):
             args = [inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_kwargs.items() + [('actor_id', i)])]
         ) for i in xrange(num)]
         for actor in actors: actor.start()
-        
-        
+         
         # Use a timeout if timeout is an integer, otherwise do not.
         # If a timeout is being used, set an alarm to run _raise_timeout after timeout seconds.
         use_timeout = True if type(timeout) == int else False                                                                               
@@ -216,6 +217,7 @@ class SupportingCast(SupportingActor):
                     if message_received_flag.value == 1:                # and a message was received
                         signal.alarm(timeout)                           # reset the alarm,
                         message_received_flag.value = 0                 # and toggle the flag back to zero.
+
             except:                                                     # If any of the above failed,
                 continue                                                # jump to the top of the while loop to check if inbox reception is ongoing.
             
@@ -233,4 +235,3 @@ class Cut:
     when put in inbox of SupportingActor or SupportingCast instance shuts down inbox reception
     """
     __waltz_cut__ = True
-

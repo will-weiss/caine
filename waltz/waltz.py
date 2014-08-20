@@ -106,6 +106,10 @@ class SupportingActor(object):
         
         callback(**instance_kwargs)                                             # Execute callback when inbox reception complete.
 
+    def cut(self):
+        use_num = 1 if not hasattr(self,'num') else self.num
+        for _ in xrange(use_num): self.inbox.put(Cut)            
+
     def __call__(self):
         """
         begin receiving messages put in inbox

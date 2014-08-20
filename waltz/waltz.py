@@ -83,6 +83,9 @@ class SupportingActor(object):
             try:
                 if use_timeout: signal.alarm(timeout)   # Set/Reset alarm
                 message = inbox.get()
+                if message == Cut:
+                    running_flag.value = 0
+                    continue
                 if use_timeout: signal.alarm(0)         # Alarm turned off when processing message
             except:
                 continue                                # If we fail to get a message we recheck whether the actor process should still be running
@@ -90,6 +93,7 @@ class SupportingActor(object):
                 receive(message, **instance_kwargs)
             except Exception as exc:
                 handle(exc, message, **instance_kwargs)
+        callback(**instance_kwargs)
 
     def __call__(self):
         """
@@ -131,6 +135,8 @@ class SupportingCast(SupportingActor):
                 assert handling_error_flag.value == 0   # Check that the director isn't currently handling an error
                 assert error_queue.empty()              # Check that the error queue is empty
                 message = inbox.get_nowait()            # Attempt to get a message at once
+                if message == Cut:
+                    break
                 message_received_flag.value = 1         # Toggle flag indicating that a message was received
             except:
                 continue                                # If any of the above fails we check whether we should still be running
@@ -170,16 +176,18 @@ class SupportingCast(SupportingActor):
         while running_flag.value == 1:
             if not any([actor.is_alive() for actor in actors]):
                 running_flag.value = 0
+                continue
             if not error_queue.empty():                             # If there is an exception in the error queue,
                 if use_timeout: signal.alarm(0)                     # turn the alarm off,
                 (exc, message, actor_kwargs) = error_queue.get()    # we catch the exception, the message, and the actor keyword arguments,
                 handle(exc, message, actors, **actor_kwargs)        # and pass them to handle
                 handling_error_flag.value = 0                       # When handle is complete the flag is turned off
-                if use_timeout: signal.alarm(time_out)
+                if use_timeout: signal.alarm(time_out)              # and the alarm is reset
             if use_timeout:
                 if message_received_flag.value == 1: 
                     signal.alarm(timeout)               # Set/Reset alarm if some process received a message
                     message_received_flag.value = 0     # Then toggle the flag back to zero
+        callback(**instance_kwargs)
 
     def __call__(self):
         """
@@ -187,4 +195,10 @@ class SupportingCast(SupportingActor):
         """
         self._director = None
         self.director.start()
+
+class Cut:
+    """
+    shuts down processing when passed to inbox of SupportingActor or SupportingCast
+    """
+    pass
 

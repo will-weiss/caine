@@ -83,10 +83,7 @@ class SupportingActor(object):
         # If a timeout is being used, set an alarm to run _callback after timeout seconds.
         use_timeout = True if type(timeout) == int else False
         if use_timeout:
-            signal.signal(
-                sig = signal.SIGALRM, 
-                action = functools.partial(SupportingActor._callback, running_flag = running_flag, callback = callback, **instance_kwargs)
-            )
+            signal.signal(signal.SIGALRM, functools.partial(SupportingActor._callback, running_flag = running_flag, callback = callback, **instance_kwargs))
             signal.alarm(timeout)
         
         while running_flag.value == 1:                                          # While inbox reception is ongoing:
@@ -193,10 +190,7 @@ class SupportingCast(SupportingActor):
         # If a timeout is being used, set an alarm to run _callback after timeout seconds.
         use_timeout = True if type(timeout) == int else False                                                                               
         if use_timeout:
-            signal.signal(
-                sig = signal.SIGALRM, 
-                action = functools.partial(SupportingCast._callback, running_flag = running_flag, callback = callback, **instance_kwargs)
-            )
+            signal.signal(signal.SIGALRM, functools.partial(SupportingCast._callback, running_flag = running_flag, callback = callback, **instance_kwargs))
             signal.alarm(timeout)
         
         while running_flag.value == 1:                              # While inbox reception is ongoing:

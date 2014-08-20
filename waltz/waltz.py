@@ -65,12 +65,11 @@ class SupportingActor(object):
         raise exc
 
     @staticmethod
-    def _callback(signum, frame, running_flag, callback, **instance_kwargs):
+    def _raise_timeout(signum, frame, running_flag):
         """
-        shuts off the running_flag value and executes callback
+        shuts off the running_flag value, ending inbox reception
         """
         running_flag.value = 0
-        return callback(**instance_kwargs)
 
     @staticmethod
     def _listen(inbox, receive, callback, timeout, handle, instance_kwargs):
@@ -80,24 +79,26 @@ class SupportingActor(object):
         running_flag = multiprocessing.Value('i', 1) # This flag indicates whether the listening process is ongoing.
         
         # Use a timeout if timeout is an integer, otherwise do not.
-        # If a timeout is being used, set an alarm to run _callback after timeout seconds.
+        # If a timeout is being used, set an alarm to run _raise_timeout after timeout seconds.
         use_timeout = True if type(timeout) == int else False
-        if use_timeout:
-            signal.signal(signal.SIGALRM, functools.partial(SupportingActor._callback, running_flag = running_flag, callback = callback, **instance_kwargs))
+        if use_timeout: 
+            signal.signal(signal.SIGALRM, functools.partial(SupportingActor._raise_timeout, running_flag = running_flag))
             signal.alarm(timeout)
-        
+                 
         while running_flag.value == 1:                                          # While inbox reception is ongoing:
-            
+
             try:                                                                # Try
                 message = inbox.get_nowait()                                    # to get a message immediately.
                 if message == Cut:                                              # If message is Cut
                     running_flag.value = 0                                      # flag inbox reception as not ongoing
                     break                                                       # and break the listening process
-                if use_timeout: signal.alarm(0)                                 # Alarm turned off when reception message
+                if use_timeout: signal.alarm(0)                                 # Alarm turned off while running receive on message
             except:                                                             # If any of the above fails
                 continue                                                        # start the while loop again to ensure that the listening process should continue.
             
-            try: receive(message, **instance_kwargs)                            # With a non-Cut message try executing the receive function on the message.
+            try:                                                                # With a non-Cut message try
+                receive(message, **instance_kwargs)                             # executing the receive function on the message
+                if use_timeout : signal.alarm(timeout)                          # if successful, reset the alarm if appropriate. 
             except Exception as exc: handle(exc, message, **instance_kwargs)    # If an exception is raised, pass it, the message, and the instance keyword arguments to handle.
         
         callback(**instance_kwargs)                                             # Execute callback when inbox reception complete.
@@ -187,31 +188,34 @@ class SupportingCast(SupportingActor):
         
         
         # Use a timeout if timeout is an integer, otherwise do not.
-        # If a timeout is being used, set an alarm to run _callback after timeout seconds.
+        # If a timeout is being used, set an alarm to run _raise_timeout after timeout seconds.
         use_timeout = True if type(timeout) == int else False                                                                               
         if use_timeout:
-            signal.signal(signal.SIGALRM, functools.partial(SupportingCast._callback, running_flag = running_flag, callback = callback, **instance_kwargs))
+            signal.signal(signal.SIGALRM, functools.partial(SupportingCast._raise_timeout, running_flag = running_flag))
             signal.alarm(timeout)
         
-        while running_flag.value == 1:                              # While inbox reception is ongoing:
+        while running_flag.value == 1:                                  # While inbox reception is ongoing:
             
-            if not any([actor.is_alive() for actor in actors]):     # If no actor is alive,
-                running_flag.value = 0                              # flag the listening process as complete,
-                break                                               # and break the listening process.
+            try:                                                        # Try the following:
+                if not any([actor.is_alive() for actor in actors]):     # If no actor is alive,
+                    running_flag.value = 0                              # flag the listening process as complete,
+                    break                                               # and break the listening process.
+                
+                if not error_queue.empty():                             # If there is an exception in the error queue,
+                    if use_timeout: signal.alarm(0)                     # turn the alarm off if appropriate,
+                    (exc, message, actor_kwargs) = error_queue.get()    # catch the exception, the message, and the actor keyword arguments,
+                    handle(exc, message, actors, **actor_kwargs)        # and pass them to handle.
+                    handling_error_flag.value = 0                       # When handle is complete turn off the flag,
+                    if use_timeout: signal.alarm(time_out)              # and reset the alarm if appropriate.
+                
+                if use_timeout:                                         # If a timeout is being used,
+                    if message_received_flag.value == 1:                # and a message was received
+                        signal.alarm(timeout)                           # reset the alarm,
+                        message_received_flag.value = 0                 # and toggle the flag back to zero.
+            except:                                                     # If any of the above failed,
+                continue                                                # jump to the top of the while loop to check if inbox reception is ongoing.
             
-            if not error_queue.empty():                             # If there is an exception in the error queue,
-                if use_timeout: signal.alarm(0)                     # turn the alarm off if appropriate,
-                (exc, message, actor_kwargs) = error_queue.get()    # catch the exception, the message, and the actor keyword arguments,
-                handle(exc, message, actors, **actor_kwargs)        # and pass them to handle.
-                handling_error_flag.value = 0                       # When handle is complete turn off the flag,
-                if use_timeout: signal.alarm(time_out)              # and reset the alarm if appropriate.
-            
-            if use_timeout:                                         # If a timeout is being used,
-                if message_received_flag.value == 1:                # and a message was received
-                    signal.alarm(timeout)                           # reset the alarm,
-                    message_received_flag.value = 0                 # and toggle the flag back to zero.
-        
-        callback(**instance_kwargs)                                 # Execute callback when inbox reception complete.
+        callback(**instance_kwargs)                                     # Execute callback when inbox reception complete.
 
     def __call__(self):
         """

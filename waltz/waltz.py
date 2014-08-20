@@ -89,9 +89,11 @@ class SupportingActor(object):
 
             try:                                                                # Try
                 message = inbox.get_nowait()                                    # to get a message immediately.
-                if message == Cut:                                              # If message is Cut
-                    running_flag.value = 0                                      # flag inbox reception as not ongoing
-                    break                                                       # and break the listening process
+                if hasattr(message, '__waltz_cut__'):                           # If message has attribute __waltz_cut__,
+                    if message.__waltz_cut__ == True:                           # and __waltz_cut__ is equal to True,
+                        if message == Cut:                                      # and the message is Cut,
+                            running_flag.value = 0                              # flag inbox reception as not ongoing
+                            break                                               # and break the listening process
                 if use_timeout: signal.alarm(0)                                 # Alarm turned off while running receive on message
             except:                                                             # If any of the above fails
                 continue                                                        # start the while loop again to ensure that the listening process should continue.
@@ -156,8 +158,10 @@ class SupportingCast(SupportingActor):
                 assert handling_error_flag.value == 0           # First check that the director isn't currently handling an error,
                 assert error_queue.empty()                      # then check that the error queue is empty,
                 message = inbox.get_nowait()                    # now attempt to get a message at once.
-                if message == Cut:                              # If message is Cut
-                    break                                       # break the listening process.
+                if hasattr(message, '__waltz_cut__'):           # If message has attribute __waltz_cut__,
+                    if message.__waltz_cut__ == True:           # and __waltz_cut__ is equal to True,
+                        if message == Cut:                      # and the message is Cut,
+                            break                               # break the listening process.
                 message_received_flag.value = 1                 # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
             except:                                             # If any of the above fails
                 continue                                        # start the while loop again to ensure that the listening process should continue.
@@ -228,4 +232,5 @@ class Cut:
     """
     when put in inbox of SupportingActor or SupportingCast instance shuts down inbox reception
     """
-    pass
+    __waltz_cut__ = True
+

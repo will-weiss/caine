@@ -55,7 +55,7 @@ class SupportingActor(object):
     @staticmethod
     def handle(exc, message, **instance_kwargs):
         """
-        method to call when non-timeout exception raised by listen
+        method to call when non-timeout exception raised
         """
         print "Error for message:"
         print message
@@ -145,7 +145,7 @@ class SupportingCast(SupportingActor):
     @staticmethod
     def handle(exc, message, actors, **actor_kwargs):
         """
-        method to call when non-timeout exception raised by listen
+        method to call when non-Timeout exception raised
         """
         print "Error for message:"
         print message
@@ -175,6 +175,7 @@ class SupportingCast(SupportingActor):
                 (exc, message, actor_kwargs) = error_queue.get()    # we catch the exception, the message, and the actor keyword arguments,
                 handle(exc, message, actors, **actor_kwargs)        # and pass them to handle
                 handling_error_flag.value = 0                       # When handle is complete the flag is turned off
+                if use_timeout: signal.alarm(time_out)
             if use_timeout:
                 if message_received_flag.value == 1: 
                     signal.alarm(timeout)               # Set/Reset alarm if some process received a message

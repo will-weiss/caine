@@ -28,10 +28,18 @@ class SupportingActor(object):
         dict with atributes of instance
         """
         instance_attributes = {}
-        for nm, val in self.__dict__.iteritems():
-            if (nm[0] == '_') | (hasattr(val,'__call__') & (not isinstance(val, types.FunctionType))): 
+        attr_dicts = []
+        for parent_class in self.__class__.__bases__:
+            if parent_class == object:
                 continue
-            instance_attributes[nm] = val
+            attr_dicts.append(parent_class.__dict__)
+        attr_dicts.append(self.__class__.__dict__)
+        attr_dicts.append(self.__dict__) 
+        for attr_dict in attr_dicts:
+            for nm, val in attr_dict:
+                if (nm[0] == '_') | (hasattr(val,'__call__') & (not isinstance(val, types.FunctionType))): 
+                    continue
+                instance_attributes[nm] = val
         return instance_attributes
 
     @property

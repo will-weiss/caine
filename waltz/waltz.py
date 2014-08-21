@@ -179,7 +179,7 @@ class SupportingCast(SupportingActor):
         while running_flag.value == 1:                          # While inbox reception is ongoing:
             
             try:                                                # Try to get a message immediately.
-                assert handling_error_flag.value == 0           # First check that the director isn't currently handling an error,
+                assert handling_error_flag.value == 0           # First check that the process isn't currently handling an error,
                 assert error_queue.empty()                      # then check that the error queue is empty,
                 message = inbox.get_nowait()                    # now attempt to get a message at once.
                 if hasattr(message, '__waltz_cut__'):           # If message has attribute __waltz_cut__,
@@ -204,8 +204,8 @@ class SupportingCast(SupportingActor):
         cast and direct multiple actors receiving messages from a common inbox
         """
         running_flag.value = 1                                  # This flag indicates whether the listening process is ongoing.
-        message_received_flag = multiprocessing.Value('i', 0)   # This flag gets toggled to 1 when individual actors receive messages, which causes the director to reset the timeout alarm.
-        handling_error_flag = multiprocessing.Value('i', 0)     # This flag gets toggled to 1 when the director is handling an error and toggled back to zero when error handling is done.
+        message_received_flag = multiprocessing.Value('i', 0)   # This flag gets toggled to 1 when individual actors receive messages, which causes the process to reset the timeout alarm.
+        handling_error_flag = multiprocessing.Value('i', 0)     # This flag gets toggled to 1 when the process is handling an error and toggled back to zero when error handling is done.
         error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors.
         
         # Create a list of actors, processes who each listen for messages from a common inbox, then start each actor.
@@ -246,19 +246,6 @@ class SupportingCast(SupportingActor):
         
         if running_flag.value != -1:                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
             callback(**instance_kwargs)                                 # execute callback.
-
-    def __call__(self):
-        """
-        begin receiving messages put in common inbox
-        """
-        if self._process is not None:
-            print "Ending existing director..."
-            self.cut(immediate = True)
-            while self._process.is_alive():
-                time.sleep(1)
-            print "Existing director ended."
-        self._process = None
-        self.director.start()
 
 class Cut:
     """

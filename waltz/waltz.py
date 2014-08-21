@@ -2,6 +2,7 @@ import multiprocessing
 import signal
 import time
 import functools
+import types
 
 class SupportingActor(object):
     """

@@ -96,26 +96,26 @@ class SupportingActor(object):
             signal.signal(signal.SIGALRM, functools.partial(SupportingActor._raise_timeout, running_flag = running_flag))
             signal.alarm(timeout)
                  
-        while running_flag.value == 1:                                          # While inbox reception is ongoing:
-
-            try:                                                                # Try
-                message = inbox.get_nowait()                                    # to get a message immediately.
-                if hasattr(message, '__waltz_cut__'):                           # If message has attribute __waltz_cut__,
-                    if message.__waltz_cut__ == True:                           # and __waltz_cut__ is equal to True,
-                        if message == Cut:                                      # and the message is Cut,
-                            running_flag.value = 0                              # flag inbox reception as not ongoing
-                            break                                               # and break the listening process
-                if use_timeout: signal.alarm(0)                                 # Alarm turned off while running receive on message
+        while running_flag.value == 1:                                              # While inbox reception is ongoing:
             
-            except:                                                             # If any of the above fails
-                continue                                                        # start the while loop again to ensure that the listening process should continue.
+            try:                                                                    # Try
+                message = inbox.get_nowait()                                        # to get a message immediately.
+                if hasattr(message, '__waltz_cut__'):                               # If message has attribute __waltz_cut__,
+                    if message.__waltz_cut__ == True:                               # and __waltz_cut__ is equal to True,
+                        if message == Cut:                                          # and the message is Cut,
+                            running_flag.value = 0                                  # flag inbox reception as not ongoing
+                            break                                                   # and break the listening process
+                if use_timeout: signal.alarm(0)                                     # Alarm turned off while running receive on message
             
-            try:                                                                # With a non-Cut message try
+            except:                                                                 # If any of the above fails
+                continue                                                            # start the while loop again to ensure that the listening process should continue.
+            
+            try:                                                                    # With a non-Cut message try
                 receive(message, **instance_attributes)                             # executing the receive function on the message
-                if use_timeout : signal.alarm(timeout)                          # if successful, reset the alarm if appropriate. 
+                if use_timeout : signal.alarm(timeout)                              # if successful, reset the alarm if appropriate. 
             except Exception as exc: handle(exc, message, **instance_attributes)    # If an exception is raised, pass it, the message, and the instance atributes to handle.
         
-        if running_flag.value != -1:                                            # If running_flag does not have a value of -1 indicating the process was not cut immediately,
+        if running_flag.value != -1:                                                # If running_flag does not have a value of -1 indicating the process was not cut immediately,
             callback(**instance_attributes)                                         # execute callback.
 
     def cut(self, immediate = False):

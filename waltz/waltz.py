@@ -136,7 +136,7 @@ class SupportingCast(SupportingActor):
     @property
     def director(self):
         """
-        multiprocessing.Process directing multiple actors reception a common inbox 
+        multiprocessing.Process directing multiple actors receiving from a common inbox 
         """
         if self._director is None:
             self._director = multiprocessing.Process(target = SupportingCast._direct, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.num, self.instance_kwargs])

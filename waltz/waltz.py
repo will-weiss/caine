@@ -38,7 +38,8 @@ class SupportingActor(object):
         multiprocessing.Process receiving messages put in inbox 
         """
         if self._process is None:
-            self._process = multiprocessing.Process(target = SupportingActor._listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.instance_kwargs])
+            self._running_flag = multiprocessing.Value('i', 0)
+            self._process = multiprocessing.Process(target = SupportingActor._listen, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self._running_flag, self.instance_kwargs])
         return self._process
     
     @staticmethod
@@ -72,11 +73,11 @@ class SupportingActor(object):
         running_flag.value = 0
 
     @staticmethod
-    def _listen(inbox, receive, callback, timeout, handle, instance_kwargs):
+    def _listen(inbox, receive, callback, timeout, handle, running_flag, instance_kwargs):
         """
         listens for incoming messages, executes callback when inbox reception complete, executes handle when exception raised
         """
-        running_flag = multiprocessing.Value('i', 1) # This flag indicates whether the listening process is ongoing.
+        running_flag.value = 1 # This flag indicates whether the listening process is ongoing.
         
         # Use a timeout if timeout is an integer, otherwise do not.
         # If a timeout is being used, set an alarm to run _raise_timeout after timeout seconds.
@@ -104,16 +105,34 @@ class SupportingActor(object):
                 if use_timeout : signal.alarm(timeout)                          # if successful, reset the alarm if appropriate. 
             except Exception as exc: handle(exc, message, **instance_kwargs)    # If an exception is raised, pass it, the message, and the instance keyword arguments to handle.
         
-        callback(**instance_kwargs)                                             # Execute callback when inbox reception complete.
+        if running_flag.value != -1:                                            # If running_flag does not have a value of -1 indicating the process was not cut immediately,
+            callback(**instance_kwargs)                                         # execute callback.
 
-    def cut(self):
-        use_num = 1 if not hasattr(self,'num') else self.num
-        for _ in xrange(use_num): self.inbox.put(Cut)            
+    def cut(self, immediate = False):
+        """
+        ends inbox processing
+
+        Parameters
+        __________
+        immediate : boolean, default False
+            If True, inbox processing is ended in place, otherwise inbox processing continues for all values already in the queue.
+        """
+        if immediate:
+            self._running_flag.value = -1
+        else:
+            use_num = 1 if not hasattr(self,'num') else self.num
+            for _ in xrange(use_num): self.inbox.put(Cut)            
 
     def __call__(self):
         """
         begin receiving messages put in inbox
         """
+        if self._process is not None:
+            print "Ending existing process..."
+            self.cut(immediate = True)
+            while self._process.is_alive():
+                time.sleep(1)
+            print "Existing process ended."
         self._process = None
         self.process.start()
 
@@ -131,16 +150,16 @@ class SupportingCast(SupportingActor):
     def __init__(self, num = 1, **kwargs):
         self.num = num
         SupportingActor.__init__(self, **kwargs)
-        self._director = None
 
     @property
-    def director(self):
+    def process(self):
         """
         multiprocessing.Process directing multiple actors receiving from a common inbox 
         """
-        if self._director is None:
-            self._director = multiprocessing.Process(target = SupportingCast._direct, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.num, self.instance_kwargs])
-        return self._director
+        if self._process is None:
+            self._running_flag = multiprocessing.Value('i', 0)
+            self._process = multiprocessing.Process(target = SupportingCast._direct, args = [self.inbox, self.receive, self.callback, self.timeout, self.handle, self.num, self._running_flag, self.instance_kwargs])
+        return self._process
 
     @staticmethod
     def handle(exc, message, actors, **actor_kwargs):
@@ -180,11 +199,11 @@ class SupportingCast(SupportingActor):
                     time.sleep(1)                               # wait to proceed with the listening process.
 
     @staticmethod
-    def _direct(inbox, receive, callback, timeout, handle, num, instance_kwargs):
+    def _direct(inbox, receive, callback, timeout, handle, num, running_flag, instance_kwargs):
         """
         cast and direct multiple actors receiving messages from a common inbox
         """
-        running_flag = multiprocessing.Value('i', 1)            # This flag indicates whether the listening process is ongoing.
+        running_flag.value = 1                                  # This flag indicates whether the listening process is ongoing.
         message_received_flag = multiprocessing.Value('i', 0)   # This flag gets toggled to 1 when individual actors receive messages, which causes the director to reset the timeout alarm.
         handling_error_flag = multiprocessing.Value('i', 0)     # This flag gets toggled to 1 when the director is handling an error and toggled back to zero when error handling is done.
         error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors.
@@ -224,14 +243,21 @@ class SupportingCast(SupportingActor):
 
             except:                                                     # If any of the above failed,
                 continue                                                # jump to the top of the while loop to check if inbox reception is ongoing.
-            
-        callback(**instance_kwargs)                                     # Execute callback when inbox reception complete.
+        
+        if running_flag.value != -1:                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
+            callback(**instance_kwargs)                                 # execute callback.
 
     def __call__(self):
         """
         begin receiving messages put in common inbox
         """
-        self._director = None
+        if self._process is not None:
+            print "Ending existing director..."
+            self.cut(immediate = True)
+            while self._process.is_alive():
+                time.sleep(1)
+            print "Existing director ended."
+        self._process = None
         self.director.start()
 
 class Cut:

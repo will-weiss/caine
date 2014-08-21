@@ -11,5 +11,5 @@ setup(
     license='LICENSE.txt',
     description='supporting actors offer concurrent inbox processing',
     long_description=open('README.md').read(),
-    install_requires=["gevent>=1.0.1"],
+    install_requires=[],
 )

@@ -11,8 +11,8 @@ supporting actors offer concurrent inbox processing
 
 <pre><code>from waltz import SupportingActor
 
-def print_square(message, **instance_kwargs):
-    print "%s says %s squared is: %s" %(instance_kwargs['name'] , message, message**2)
+def print_square(message, **instance_attributes):
+    print "%s says %s squared is: %s" %(instance_attributes['name'] , message, message**2)
 
 square_printing_actor = SupportingActor(receive = print_square, timeout = 5, name = 'Bob')
 
@@ -40,10 +40,10 @@ No more messages in inbox.</code></pre>
 <pre><code>from waltz import SupportingCast
 import time
 
-def print_square(message, **actor_kwargs):
+def print_square(message, **actor_attributes):
     import random
     time.sleep(random.randint(2,4))
-    print "Actor #%s says %s squared is: %s" %(actor_kwargs['actor_id'], message, message**2)
+    print "Actor #%s says %s squared is: %s" %(actor_attributes['actor_id'], message, message**2)
 
 square_printing_cast = SupportingCast(receive = print_square, timeout = 5, num = 3)
 

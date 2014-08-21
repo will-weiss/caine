@@ -257,6 +257,25 @@ class SupportingCast(SupportingActor):
         if running_flag.value != -1:                                        # If running_flag does not have a value of -1 indicating the process was not cut immediately,
             callback(**instance_attributes)                                 # execute callback.
 
+class Collector(SupportingActor):
+  def __init__(self, **kwargs):
+    SupportingActor.__init__(self, **kwargs)
+    self.collected_outbox = multiprocessing.Manager().Queue()
+
+  @staticmethod
+  def collect(new_message, collected_messages, **collector_attributes):
+    raise NotImplemented()
+
+  @staticmethod
+  def receive(message, **collector_attributes):
+    collect_func = collector_attributes['collect']
+    try:
+      c = collector_attributes['collected_outbox'].get_nowait()
+    except:
+      c = None
+    collected_messages = collect_func(message, c, **collector_attributes)
+    collector_attributes['collected_outbox'].put(collected_messages)
+
 class Cut:
     """
     when put in inbox of SupportingActor or SupportingCast instance shuts down inbox reception

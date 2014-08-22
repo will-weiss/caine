@@ -70,8 +70,7 @@ for i in xrange(1,11):
 
 ### Other Functions
 
-<pre><code>
-square_printing_cast() 
+<pre><code>square_printing_cast() 
 
 for i in xrange(11,21):
     square_printing_cast.inbox.put(i)

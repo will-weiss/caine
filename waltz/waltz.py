@@ -37,7 +37,7 @@ class SupportingActor(object):
         attr_dicts.append(self.__dict__) 
         for attr_dict in attr_dicts:
             for nm, val in attr_dict.iteritems():
-                if (nm == 'instance_attributes') | (nm[0] == '_') | (hasattr(val,'__call__') & (not isinstance(val, types.FunctionType))): 
+                if (nm == 'instance_attributes') or (nm[0] == '_') or (hasattr(val,'__call__') and (not isinstance(val, types.FunctionType))): 
                     continue
                 instance_attributes[nm] = val
         return instance_attributes

@@ -21,5 +21,5 @@ print c.collected
 
 # Output
 # ------
-# No more messages in inbox.
+# Inbox processing done.
 # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

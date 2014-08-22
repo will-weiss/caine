@@ -84,16 +84,16 @@ for i in xrange(21,31):
 
 # Output
 # ------
-# Actor #2 says 3 squared is: 9
-# Actor #0 says 2 squared is: 4
-# Actor #1 says 1 squared is: 1
-# Actor #1 says 6 squared is: 36
-# Actor #2 says 4 squared is: 16
-# Actor #0 says 5 squared is: 25
-# Actor #1 says 7 squared is: 49
-# Actor #2 says 8 squared is: 64
-# Actor #1 says 10 squared is: 100
-# Actor #0 says 9 squared is: 81
+# Actor #1 says 11 squared is: 121
+# Actor #0 says 12 squared is: 144
+# Actor #2 says 13 squared is: 169
+# Actor #1 says 14 squared is: 196
+# Actor #0 says 15 squared is: 225
+# Actor #2 says 16 squared is: 256
+# Actor #1 says 17 squared is: 289
+# Actor #0 says 18 squared is: 324
+# Actor #2 says 19 squared is: 361
+# Actor #1 says 20 squared is: 400
 # Inbox processing done.</code></pre>
 
 

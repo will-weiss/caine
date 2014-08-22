@@ -1,9 +1,10 @@
 from waltz import Collector
 
-def append_all(new_message, collected_messages, **collector_attributes):
-  collected_messages = collected_messages if collected_messages is not None else []
-  collected_messages.append(new_message)
-  return collected_messages
+def append_all(new_message, prior_messages, instance_attributes):
+  print new_message
+  prior_messages = prior_messages if prior_messages is not None else []
+  prior_messages.append(new_message)
+  return prior_messages
 
 c = Collector(collect = append_all)
 c()
@@ -16,8 +17,7 @@ c.cut()
 while c.process.is_alive():
   pass
 
-collected_messages = c.collected_outbox.get()
-print collected_messages
+print c.collected
 
 # Output
 # ------

@@ -11,7 +11,7 @@ supporting actors offer concurrent inbox processing
 
 <pre><code>from waltz import SupportingActor
 
-def print_square(message, **instance_attributes):
+def print_square(message, instance_attributes):
     print "%s says %s squared is: %s" %(instance_attributes['name'] , message, message**2)
 
 square_printing_actor = SupportingActor(receive = print_square, timeout = 5, name = 'Bob')
@@ -22,25 +22,26 @@ square_printing_actor()
 for i in xrange(1,11):
     square_printing_actor.inbox.put(i)
 
-### Output
-Bob says 1 squared is: 1
-Bob says 2 squared is: 4
-Bob says 3 squared is: 9
-Bob says 4 squared is: 16
-Bob says 5 squared is: 25
-Bob says 6 squared is: 36
-Bob says 7 squared is: 49
-Bob says 8 squared is: 64
-Bob says 9 squared is: 81
-Bob says 10 squared is: 100
-No more messages in inbox.</code></pre>
+# Output
+# ------
+# Bob says 1 squared is: 1
+# Bob says 2 squared is: 4
+# Bob says 3 squared is: 9
+# Bob says 4 squared is: 16
+# Bob says 5 squared is: 25
+# Bob says 6 squared is: 36
+# Bob says 7 squared is: 49
+# Bob says 8 squared is: 64
+# Bob says 9 squared is: 81
+# Bob says 10 squared is: 100
+# Inbox processing done.</code></pre>
 
 ### More Horsepower
 
 <pre><code>from waltz import SupportingCast
 import time
 
-def print_square(message, **actor_attributes):
+def print_square(message, actor_attributes):
     import random
     time.sleep(random.randint(2,4))
     print "Actor #%s says %s squared is: %s" %(actor_attributes['actor_id'], message, message**2)
@@ -53,15 +54,58 @@ square_printing_cast()
 for i in xrange(1,11):
     square_printing_cast.inbox.put(i)
 
-### Output
-Actor #2 says 3 squared is: 9
-Actor #0 says 2 squared is: 4
-Actor #1 says 1 squared is: 1
-Actor #1 says 6 squared is: 36
-Actor #2 says 4 squared is: 16
-Actor #0 says 5 squared is: 25
-Actor #1 says 7 squared is: 49
-Actor #2 says 8 squared is: 64
-Actor #1 says 10 squared is: 100
-Actor #0 says 9 squared is: 81
-No more messages in inbox.</code></pre>
+# Output
+# ------
+# Actor #2 says 3 squared is: 9
+# Actor #0 says 2 squared is: 4
+# Actor #1 says 1 squared is: 1
+# Actor #1 says 6 squared is: 36
+# Actor #2 says 4 squared is: 16
+# Actor #0 says 5 squared is: 25
+# Actor #1 says 7 squared is: 49
+# Actor #2 says 8 squared is: 64
+# Actor #1 says 10 squared is: 100
+# Actor #0 says 9 squared is: 81
+# Inbox processing done.</code></pre>
+
+### Other Functions
+
+<pre><code>
+square_printing_cast() 
+
+for i in xrange(11,21):
+    square_printing_cast.inbox.put(i)
+
+square_printing_cast.cut() # Items put in inbox after this will not be processed
+
+# These items will not be processed and will remain in the inbox
+for i in xrange(21,31):
+    square_printing_cast.inbox.put(i)
+
+# Output
+# ------
+# Actor #2 says 3 squared is: 9
+# Actor #0 says 2 squared is: 4
+# Actor #1 says 1 squared is: 1
+# Actor #1 says 6 squared is: 36
+# Actor #2 says 4 squared is: 16
+# Actor #0 says 5 squared is: 25
+# Actor #1 says 7 squared is: 49
+# Actor #2 says 8 squared is: 64
+# Actor #1 says 10 squared is: 100
+# Actor #0 says 9 squared is: 81
+# Inbox processing done.</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

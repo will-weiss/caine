@@ -152,8 +152,10 @@ class SupportingCast(SupportingActor):
 
     Parameters
     __________
+    timeout : int or None, default None
+        If not None, the number of seconds between message receptions before callback is executed
     num : int, default 1
-        Number of seconds between message receptions before callback is executed
+        Number of actor processes
     kwargs : object
         Additional keyword arguments are set as attributes
     """

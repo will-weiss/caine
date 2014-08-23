@@ -296,9 +296,7 @@ class Collector(SupportingActor):
         """
         returns collected messages when passed a new message and prior messages, requires implementation
         """
-        prior_collected = prior_collected if prior_collected is not None else []
-        prior_collected.append(new_message)
-        return prior_collected
+        raise NotImplemented()
 
     @globalmethod
     def receive(message, instance_attributes):

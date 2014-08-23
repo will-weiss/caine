@@ -77,7 +77,7 @@ class SupportingActor(object):
         raise exc
 
     @globalmethod
-    def _raise_timeout(signum, frame, running_flag):
+    def _timeout(signum, frame, running_flag):
         """
         shuts off the running_flag value, ending inbox reception
         """
@@ -91,10 +91,10 @@ class SupportingActor(object):
         running_flag.value = 1 # This flag indicates whether the listening process is ongoing.
         
         # Use a timeout if timeout is an integer, otherwise do not.
-        # If a timeout is being used, set an alarm to run _raise_timeout after timeout seconds.
+        # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
         use_timeout = True if type(instance_attributes['timeout']) == int else False
         if use_timeout: 
-            signal.signal(signal.SIGALRM, functools.partial(SupportingActor._raise_timeout, running_flag = running_flag))
+            signal.signal(signal.SIGALRM, functools.partial(SupportingActor._timeout, running_flag = running_flag))
             signal.alarm(instance_attributes['timeout'])
                  
         while running_flag.value == 1:                                                                      # While inbox reception is ongoing:
@@ -227,10 +227,10 @@ class SupportingCast(SupportingActor):
         for actor in actors: actor.start()
          
         # Use a timeout if timeout is an integer, otherwise do not.
-        # If a timeout is being used, set an alarm to run _raise_timeout after timeout seconds.
+        # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
         use_timeout = True if type(instance_attributes['timeout']) == int else False                                                                               
         if use_timeout:
-            signal.signal(signal.SIGALRM, functools.partial(SupportingCast._raise_timeout, running_flag = running_flag))
+            signal.signal(signal.SIGALRM, functools.partial(SupportingCast._timeout, running_flag = running_flag))
             signal.alarm(instance_attributes['timeout'])
         
         while running_flag.value == 1:                                                          # While inbox reception is ongoing:

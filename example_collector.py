@@ -1,7 +1,6 @@
 from waltz import Collector
 
 def append_all(new_message, prior_messages, instance_attributes):
-  print new_message
   prior_messages = prior_messages if prior_messages is not None else []
   prior_messages.append(new_message)
   return prior_messages

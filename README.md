@@ -1,15 +1,15 @@
-waltz
+caine
 =====
 
 supporting actors offer concurrent inbox processing
 
 ### Install
 
-<pre><code>pip install git+git://github.com/will-weiss/waltz.git</code></pre>
+<pre><code>pip install git+git://github.com/will-weiss/caine.git</code></pre>
 
 ### Usage
 
-<pre><code>from waltz import SupportingActor
+<pre><code>from caine import SupportingActor
 
 def print_square(message, instance_attributes):
     print "%s says %s squared is: %s" %(instance_attributes['name'] , message, message**2)
@@ -38,7 +38,7 @@ for i in xrange(1,11):
 
 ### More Horsepower
 
-<pre><code>from waltz import SupportingCast
+<pre><code>from caine import SupportingCast
 import time
 
 def print_square(message, actor_attributes):

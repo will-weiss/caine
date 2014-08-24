@@ -5,7 +5,7 @@ supporting actors offer concurrent inbox processing
 
 ### Install
 
-<pre><code>pip install git+git://github.com/will-weiss/caine.git</code></pre>
+<pre><code>pip install caine</code></pre>
 
 ### Usage
 

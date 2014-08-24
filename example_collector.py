@@ -1,4 +1,4 @@
-from waltz import Collector
+from caine import Collector
 
 def append_all(new_message, prior_messages, instance_attributes):
   prior_messages = prior_messages if prior_messages is not None else []

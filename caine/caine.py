@@ -101,8 +101,8 @@ class SupportingActor(object):
             
             try:                                                                                            # Try
                 message = instance_attributes['inbox'].get_nowait()                                         # to get a message immediately.
-                if hasattr(message, '_waltz_cut_'):                                                         # If message has attribute _waltz_cut_,
-                    if message._waltz_cut_ == True:                                                         # and _waltz_cut_ is equal to True,
+                if hasattr(message, '_caine_cut_'):                                                         # If message has attribute _caine_cut_,
+                    if message._caine_cut_ == True:                                                         # and _caine_cut_ is equal to True,
                         running_flag.value = 0                                                              # flag inbox reception as not ongoing
                         break                                                                               # and break the listening process
                 if use_timeout: signal.alarm(0)                                                             # Alarm turned off while running receive on message
@@ -148,7 +148,7 @@ class SupportingActor(object):
 
 class SupportingCast(SupportingActor):
     """
-    Data structure with operations for receiving objects put in its inbox using multiple waltz.SupportingActor processes
+    Data structure with operations for receiving objects put in its inbox using multiple caine.SupportingActor processes
 
     Parameters
     __________
@@ -194,8 +194,8 @@ class SupportingCast(SupportingActor):
                 assert handling_error_flag.value == 0               # First check that the process isn't currently handling an error,
                 assert error_queue.empty()                          # then check that the error queue is empty,
                 message = inbox.get_nowait()                        # now attempt to get a message at once.
-                if hasattr(message, '_waltz_cut_'):                 # If message has attribute _waltz_cut_,
-                    if message._waltz_cut_ == True:                 # and _waltz_cut_ is equal to True,
+                if hasattr(message, '_caine_cut_'):                 # If message has attribute _caine_cut_,
+                    if message._caine_cut_ == True:                 # and _caine_cut_ is equal to True,
                         break                                       # break the listening process.
                 message_received_flag.value = 1                     # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
             
@@ -311,4 +311,4 @@ class Cut:
     """
     when put in inbox of SupportingActor or SupportingCast instance shuts down inbox reception
     """
-    _waltz_cut_ = True
+    _caine_cut_ = True

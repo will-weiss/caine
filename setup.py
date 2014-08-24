@@ -8,7 +8,7 @@ setup(
     packages=['waltz'],
     scripts=[],
     url='https://github.com/will-weiss/waltz/',
-    license='LICENSE.txt',
+    license='http://www.apache.org/licenses/LICENSE-2.0.html',
     description='supporting actors offer concurrent inbox processing',
     long_description=open('README.md').read(),
     install_requires=[],

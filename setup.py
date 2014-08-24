@@ -10,6 +10,6 @@ setup(
     url='https://github.com/will-weiss/caine/',
     license='http://www.apache.org/licenses/LICENSE-2.0.html',
     description='supporting actors offer concurrent inbox processing',
-    long_description=open('README.md').read(),
+    long_description=open('README.rst').read(),
     install_requires=[],
 )

@@ -35,7 +35,7 @@ class SupportingActor(object):
             for nm, val in attr_dict.iteritems():
                 if (nm == 'instance_attributes') or (nm.startswith('_')):
                     continue
-                if hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, globalmethod))): 
+                if (hasattr(val,'__call__') and (not isinstance(val, globalmethod))) or (isinstance(val, staticmethod)): 
                     val = globalmethod(val)
                 instance_attributes[nm] = val
         return instance_attributes
@@ -181,30 +181,30 @@ class SupportingCast(SupportingActor):
         raise exc
 
     @globalmethod
-    def _listen(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, actor_attributes):
+    def _listen(error_queue, running_flag, message_received_flag, handling_error_flag, actor_attributes):
         """
         listens for incoming messages, passes exceptions and the message that caused them to handle
         """
-        while running_flag.value == 1:                              # While inbox reception is ongoing:
+        while running_flag.value == 1:                                      # While inbox reception is ongoing:
             
-            try:                                                    # Try to get a message immediately.
-                assert handling_error_flag.value == 0               # First check that the process isn't currently handling an error,
-                assert error_queue.empty()                          # then check that the error queue is empty,
-                message = inbox.get_nowait()                        # now attempt to get a message at once.
-                if hasattr(message, '_caine_cut_'):                 # If message has attribute _caine_cut_,
-                    if message._caine_cut_ == True:                 # and _caine_cut_ is equal to True,
-                        break                                       # break the listening process.
-                message_received_flag.value = 1                     # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
+            try:                                                            # Try to get a message immediately.
+                assert handling_error_flag.value == 0                       # First check that the process isn't currently handling an error,
+                assert error_queue.empty()                                  # then check that the error queue is empty,
+                message = instance_attributes['inbox'].get_nowait()         # now attempt to get a message at once.
+                if hasattr(message, '_caine_cut_'):                         # If message has attribute _caine_cut_,
+                    if message._caine_cut_ == True:                         # and _caine_cut_ is equal to True,
+                        break                                               # break the listening process.
+                message_received_flag.value = 1                             # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
             
-            except:                                                 # If any of the above fails
-                continue                                            # start the while loop again to ensure that the listening process should continue.
+            except:                                                         # If any of the above fails
+                continue                                                    # start the while loop again to ensure that the listening process should continue.
             
-            try: receive(message, actor_attributes)                 # With a non-Cut message try executing the receive function on the message.
-            except Exception as exc:                                # If an exception is raised:
-                error_queue.put((exc, message, actor_attributes))   # put it, the message, and the actor atributes in the error queue
-                handling_error_flag.value = 1                       # and toggle the flag indicating that an error as being handled.
-                while handling_error_flag.value == 1:               # While the flag is toggled to 1,
-                    time.sleep(1)                                   # wait to proceed with the listening process.
+            try: instance_attributes['receive'](message, actor_attributes)  # With a non-Cut message try executing the receive function on the message.
+            except Exception as exc:                                        # If an exception is raised:
+                error_queue.put((exc, message, actor_attributes))           # put it, the message, and the actor atributes in the error queue
+                handling_error_flag.value = 1                               # and toggle the flag indicating that an error as being handled.
+                while handling_error_flag.value == 1:                       # While the flag is toggled to 1,
+                    time.sleep(1)                                           # wait to proceed with the listening process.
 
     @globalmethod
     def _direct(running_flag, instance_attributes):
@@ -219,7 +219,7 @@ class SupportingCast(SupportingActor):
         # Create a list of actors, processes who each listen for messages from a common inbox, then start each actor.
         actors = [multiprocessing.Process(
             target = SupportingCast._listen,
-            args = [instance_attributes['inbox'], instance_attributes['receive'], error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_attributes.items() + [('actor_id', i)])]
+            args = [error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_attributes.items() + {'actor_id', i}.items())]
         ) for i in xrange(instance_attributes['num'])]
         for actor in actors: actor.start()
          

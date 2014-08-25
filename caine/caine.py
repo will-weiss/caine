@@ -32,8 +32,6 @@ class SupportingActor(object):
         instance_attributes = {}
         attr_dicts = []
         for parent_class in self.__class__.__bases__:
-            if parent_class == object:
-                continue
             attr_dicts.append(parent_class.__dict__)
         attr_dicts.append(self.__class__.__dict__)
         attr_dicts.append(self.__dict__) 

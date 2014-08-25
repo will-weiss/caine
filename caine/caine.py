@@ -3,6 +3,7 @@ import signal
 import time
 import functools
 import types
+import utils
 from utils import globalmethod # A decorator which makes instance and class methods callable global methods
 
 class SupportingActor(object):

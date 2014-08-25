@@ -162,7 +162,7 @@ class SupportingCast(SupportingActor):
     """
     def __init__(self, num = 1, **kwargs):
         self.num = num
-        SupportingActor.__init__(self, **kwargs)
+        super(SupportingCast, self).__init__(**kwargs)
 
     @property
     def process(self):
@@ -271,7 +271,7 @@ class Collector(SupportingActor):
         Additional keyword arguments are set as attributes
     """
     def __init__(self, **kwargs):
-        SupportingActor.__init__(self, **kwargs)
+        super(Collector, self).__init__(**kwargs)
         self._pipe_in, self._pipe_out = multiprocessing.Pipe()
   
     @property

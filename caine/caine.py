@@ -219,7 +219,7 @@ class SupportingCast(SupportingActor):
         # Create a list of actors, processes who each listen for messages from a common inbox, then start each actor.
         actors = [multiprocessing.Process(
             target = SupportingCast._listen,
-            args = [error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_attributes.items() + {'actor_id', i}.items())]
+            args = [error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_attributes.items() + {'actor_id': i}.items())]
         ) for i in xrange(instance_attributes['num'])]
         for actor in actors: actor.start()
          

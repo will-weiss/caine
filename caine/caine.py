@@ -30,7 +30,8 @@ class SupportingActor(object):
         dict with atributes of instance
         """
         instance_attributes = {}
-        attr_dicts = [parent_class.__dict__ for parent_class in inspect.getmro(self.__class__)] + [self.__dict__]
+        attr_dicts =  [self.__dict__] + [parent_class.__dict__ for parent_class in inspect.getmro(self.__class__)]
+        attr_dicts.reverse()
         for attr_dict in attr_dicts:
             for nm, val in attr_dict.iteritems():
                 if (nm == 'instance_attributes') or (nm.startswith('_')):

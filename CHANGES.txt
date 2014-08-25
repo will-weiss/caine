@@ -1,3 +1,4 @@
 v0.0.1, 2014-08-17 -- Initial release.
 v0.0.2, 2014-08-24 -- SupportingCast and Collector classes.
 v0.0.3, 2014-08-24 -- Minor Fixes.
+v0.0.4, 2014-08-25 -- Proper attribution for subclasses.

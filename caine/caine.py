@@ -38,8 +38,10 @@ class SupportingActor(object):
         attr_dicts.append(self.__dict__) 
         for attr_dict in attr_dicts:
             for nm, val in attr_dict.iteritems():
-                if (nm == 'instance_attributes') or (nm[0] == '_') or (hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, globalmethod)))): 
+                if (nm == 'instance_attributes') or (nm[0] == '_'):
                     continue
+                if (hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, utils.globalmethod)))):
+                    val = globalmethod(val)
                 instance_attributes[nm] = val
         return instance_attributes
 

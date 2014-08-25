@@ -4,7 +4,7 @@ import time
 import functools
 import types
 import inspect
-import utils
+from utils import globalmethod
 
 class SupportingActor(object):
     """
@@ -35,8 +35,8 @@ class SupportingActor(object):
             for nm, val in attr_dict.iteritems():
                 if (nm == 'instance_attributes') or (nm.startswith('_')):
                     continue
-                if hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, utils.globalmethod))):
-                    val = utils.globalmethod(val)
+                if hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, globalmethod))): 
+                    val = globalmethod(val)
                 instance_attributes[nm] = val
         return instance_attributes
 
@@ -50,21 +50,21 @@ class SupportingActor(object):
             self._process = multiprocessing.Process(target = SupportingActor._listen, args = [self._running_flag, self.instance_attributes])
         return self._process
     
-    @utils.globalmethod
+    @globalmethod
     def receive(message, instance_attributes):
         """
         method called on messages put in inbox, requires implementation
         """
         raise NotImplemented()
 
-    @utils.globalmethod
+    @globalmethod
     def callback(instance_attributes):
         """
         method called when inbox reception done
         """
         print "Inbox processing done."
 
-    @utils.globalmethod
+    @globalmethod
     def handle(exc, message, instance_attributes):
         """
         method called upon exception
@@ -73,14 +73,14 @@ class SupportingActor(object):
         print message
         raise exc
 
-    @utils.globalmethod
+    @globalmethod
     def _timeout(signum, frame, running_flag):
         """
         shuts off the running_flag value, ending inbox reception
         """
         running_flag.value = 0
 
-    @utils.globalmethod
+    @globalmethod
     def _listen(running_flag, instance_attributes):
         """
         listens for incoming messages, executes callback when inbox reception complete, executes handle when exception raised
@@ -170,7 +170,7 @@ class SupportingCast(SupportingActor):
             self._process = multiprocessing.Process(target = SupportingCast._direct, args = [self._running_flag, self.instance_attributes])
         return self._process
 
-    @utils.globalmethod
+    @globalmethod
     def handle(exc, message, actors, actor_attributes):
         """
         method called upon exception
@@ -180,7 +180,7 @@ class SupportingCast(SupportingActor):
         for actor in actors: actor.terminate()
         raise exc
 
-    @utils.globalmethod
+    @globalmethod
     def _listen(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, actor_attributes):
         """
         listens for incoming messages, passes exceptions and the message that caused them to handle
@@ -206,7 +206,7 @@ class SupportingCast(SupportingActor):
                 while handling_error_flag.value == 1:               # While the flag is toggled to 1,
                     time.sleep(1)                                   # wait to proceed with the listening process.
 
-    @utils.globalmethod
+    @globalmethod
     def _direct(running_flag, instance_attributes):
         """
         cast and direct multiple actors receiving messages from a common inbox
@@ -288,14 +288,14 @@ class Collector(SupportingActor):
                 return self._pipe_out.recv()    # return the data in the pipe,
         return None                             # otherwise return None.
 
-    @utils.globalmethod
+    @globalmethod
     def collect(new_message, prior_collected, instance_attributes):
         """
         returns collected messages when passed a new message and prior messages, requires implementation
         """
         raise NotImplemented()
 
-    @utils.globalmethod
+    @globalmethod
     def receive(message, instance_attributes):
         if instance_attributes['_pipe_out'].poll():                                                         # If the output end of the pipe has data,
             prior_collected = instance_attributes['_pipe_out'].recv()                                       # get that data from the pipe

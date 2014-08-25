@@ -3,6 +3,7 @@ import signal
 import time
 import functools
 import types
+import utils
 from utils import globalmethod # A decorator which makes instance and class methods callable global methods
 
 class SupportingActor(object):
@@ -31,15 +32,15 @@ class SupportingActor(object):
         instance_attributes = {}
         attr_dicts = []
         for parent_class in self.__class__.__bases__:
-            if parent_class == object:
-                continue
             attr_dicts.append(parent_class.__dict__)
         attr_dicts.append(self.__class__.__dict__)
         attr_dicts.append(self.__dict__) 
         for attr_dict in attr_dicts:
             for nm, val in attr_dict.iteritems():
-                if (nm == 'instance_attributes') or (nm[0] == '_') or (hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, globalmethod)))): 
+                if (nm == 'instance_attributes') or (nm[0] == '_'):
                     continue
+                if (hasattr(val,'__call__') and (not isinstance(val, (types.FunctionType, utils.globalmethod)))):
+                    val = globalmethod(val)
                 instance_attributes[nm] = val
         return instance_attributes
 
@@ -161,7 +162,7 @@ class SupportingCast(SupportingActor):
     """
     def __init__(self, num = 1, **kwargs):
         self.num = num
-        SupportingActor.__init__(self, **kwargs)
+        super(SupportingCast, self).__init__(**kwargs)
 
     @property
     def process(self):
@@ -270,7 +271,7 @@ class Collector(SupportingActor):
         Additional keyword arguments are set as attributes
     """
     def __init__(self, **kwargs):
-        SupportingActor.__init__(self, **kwargs)
+        super(Collector, self).__init__(**kwargs)
         self._pipe_in, self._pipe_out = multiprocessing.Pipe()
   
     @property

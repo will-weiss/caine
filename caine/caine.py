@@ -271,6 +271,7 @@ class Collector(SupportingActor):
         self.collect = _collect
         SupportingActor.__init__(self, **kwargs)
         self._pipe_in, self._pipe_out = multiprocessing.Pipe()
+        self._collected = None
 
     @property
     def _process_args(self):
@@ -281,9 +282,9 @@ class Collector(SupportingActor):
         """
         all collected messages if inbox processing is complete, otherwise None
         """
-        if self._pipe_out.poll():           # If there's data in the output end of the pipe,
-            return self._pipe_out.recv()    # return the data in the pipe,
-        return None                         # otherwise return None.
+        if self._pipe_out.poll():                       # If there's data in the output end of the pipe,
+            self._collected = self._pipe_out.recv()     # overwrite the private attribute using the data in the pipe,
+        return self._collected                          # return the private attribute holding the collected messages.
 
 class Cut:
     """

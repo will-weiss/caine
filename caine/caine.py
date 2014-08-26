@@ -84,7 +84,6 @@ def _listen_passive(inbox, receive, error_queue, running_flag, message_received_
             assert handling_error_flag.value == 0                       # First check that the process isn't currently handling an error,
             assert error_queue.empty()                                  # then check that the error queue is empty,
             message = inbox.get_nowait()                                # now attempt to get a message at once.
-            print "got message"
             if hasattr(message, '_caine_cut_'):                         # If message has attribute _caine_cut_,
                 if message._caine_cut_ == True:                         # and _caine_cut_ is equal to True,
                     break                                               # break the listening process.

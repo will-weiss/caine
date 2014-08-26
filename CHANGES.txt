@@ -5,3 +5,4 @@ v0.0.4, 2014-08-25 -- Proper attribution for subclasses.
 v0.0.5, 2014-08-26 -- Module-level functions reduce moving parts.
 v0.0.6, 2014-08-26 -- Minor fixes spotted.
 v0.0.7, 2014-08-26 -- Collector class uses pipe once.
+v0.0.8, 2014-08-26 -- Collector.collected behaves properly for large inputs.

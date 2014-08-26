@@ -31,11 +31,12 @@ def _timeout(signum, frame, running_flag):
     """
     running_flag.value = 0
 
-def _listen_active(running_flag, instance_attributes):
+def _listen_active(running_flag, instance_attributes, pipe_collect = None):
     """
     listens for incoming messages, executes callback when inbox reception complete, executes handle when exception raised
     """
-    running_flag.value = 1 # This flag indicates whether the listening process is ongoing.
+    running_flag.value = 1                                  # This flag indicates whether the listening process is ongoing.
+    if pipe_collect is not None: prior_collected = None     # We keep track of previously collected messages if pipe_collect is not None.
     
     # Use a timeout if timeout is an integer, otherwise do not.
     # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
@@ -44,26 +45,30 @@ def _listen_active(running_flag, instance_attributes):
         signal.signal(signal.SIGALRM, functools.partial(_timeout, running_flag = running_flag))
         signal.alarm(instance_attributes['timeout'])
              
-    while running_flag.value == 1:                                                                      # While inbox reception is ongoing:
+    while running_flag.value == 1:                                                                                  # While inbox reception is ongoing:
         
-        try:                                                                                            # Try
-            message = instance_attributes['inbox'].get_nowait()                                         # to get a message immediately.
-            if hasattr(message, '_caine_cut_'):                                                         # If message has attribute _caine_cut_,
-                if message._caine_cut_ == True:                                                         # and _caine_cut_ is equal to True,
-                    running_flag.value = 0                                                              # flag inbox reception as not ongoing
-                    break                                                                               # and break the listening process
-            if use_timeout: signal.alarm(0)                                                             # Alarm turned off while running receive on message
+        try:                                                                                                        # Try
+            message = instance_attributes['inbox'].get_nowait()                                                     # to get a message immediately.
+            if hasattr(message, '_caine_cut_'):                                                                     # If message has attribute _caine_cut_,
+                if message._caine_cut_ == True:                                                                     # and _caine_cut_ is equal to True,
+                    running_flag.value = 0                                                                          # flag inbox reception as not ongoing
+                    break                                                                                           # and break the listening process
+            if use_timeout: signal.alarm(0)                                                                         # Alarm turned off while running receive on message
         
-        except:                                                                                         # If any of the above fails
-            continue                                                                                    # start the while loop again to ensure that the listening process should continue.
+        except:                                                                                                     # If any of the above fails
+            continue                                                                                                # start the while loop again to ensure that the listening process should continue.
         
-        try:                                                                                            # With a non-Cut message try
-            instance_attributes['receive'](message, instance_attributes)                                # executing the receive function on the message
-            if use_timeout : signal.alarm(instance_attributes['timeout'])                               # if successful, reset the alarm if appropriate. 
-        except Exception as exc: instance_attributes['handle'](exc, message, instance_attributes)       # If an exception is raised, pass it, the message, and the instance atributes to handle.
+        try:                                                                                                        # With a non-Cut message,
+            if pipe_collect is not None:                                                                            # if there is a pipe to collect messages,
+                prior_collected = instance_attributes['collect'](message, prior_collected, instance_attributes)     # try executing the collect function on the message, the previously collected messages and the instance attributes
+            else:                                                                                                   # otherwise,
+                instance_attributes['receive'](message, instance_attributes)                                        # execute the receive function on the message and the instance attributes.
+            if use_timeout : signal.alarm(instance_attributes['timeout'])                                           # if successful, reset the alarm if appropriate. 
+        except Exception as exc: instance_attributes['handle'](exc, message, instance_attributes)                   # If an exception is raised, pass it, the message, and the instance atributes to handle.
     
-    if running_flag.value != -1:                                                                        # If running_flag does not have a value of -1 indicating the process was not cut immediately,
-        instance_attributes['callback'](instance_attributes)                                            # execute callback.
+    if running_flag.value != -1:                                                                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
+        if pipe_collect is not None: pipe_collect.send(prior_collected)                                             # send the previously collected messages through the pipe if appropriate,
+        instance_attributes['callback'](instance_attributes)                                                        # and execute callback.
 
 def _handle_direct(exc, message, actors, actor_attributes):
     """
@@ -153,14 +158,6 @@ def _collect(new_message, prior_collected, instance_attributes):
     """
     raise NotImplemented()
 
-def _collect_receive(message, instance_attributes):
-    if instance_attributes['_pipe_out'].poll():                                                         # If the output end of the pipe has data,
-        prior_collected = instance_attributes['_pipe_out'].recv()                                       # get that data from the pipe
-    else:                                                                                               # otherwise,
-        prior_collected = None                                                                          # there are no previously collected messages.
-    newly_collected = instance_attributes['collect'](message, prior_collected, instance_attributes)     # Get the newly collected messages by passing the new message, the previously collected messages and the instance attributes to collect.              
-    instance_attributes['_pipe_in'].send(newly_collected)                                               # Send the newly collected messages to the pipe.
-
 class SupportingActor(object):
     """
     Data structure with operations for receiving objects put in its inbox.
@@ -180,9 +177,13 @@ class SupportingActor(object):
         self.receive = _receive
         self.callback = _callback
         self.handle = _handle
+        self._running_flag = multiprocessing.Value('i', 0)
         self._process_func = _listen_active
         for nm, val in kwargs.iteritems(): setattr(self, nm, val)
 
+    @property
+    def _process_args(self):
+        return [self._running_flag, self.instance_attributes]
 
     @property
     def instance_attributes(self):
@@ -201,11 +202,10 @@ class SupportingActor(object):
     @property
     def process(self):
         """
-        multiprocessing.Process receiving messages put in inbox 
+        multiprocessing.Process
         """
         if self._process is None:
-            self._running_flag = multiprocessing.Value('i', 0)
-            self._process = multiprocessing.Process(target = self._process_func, args = [self._running_flag, self.instance_attributes])
+            self._process = multiprocessing.Process(target = self._process_func, args = self._process_args)
         return self._process
     
     def cut(self, immediate = False):
@@ -270,15 +270,10 @@ class Collector(SupportingActor):
         self.collect = _collect
         SupportingActor.__init__(self, **kwargs)
         self._pipe_in, self._pipe_out = multiprocessing.Pipe()
-        self.receive = _collect_receive
 
     @property
-    def instance_attributes(self):
-        """
-        dict with atributes of instance
-        """
-        # Collector.receive needs both ends of the pipe, so we include these in the instance attributes
-        return dict(SupportingActor.instance_attributes.__get__(self).items() + {'_pipe_in': self._pipe_in, '_pipe_out': self._pipe_out}.items())
+    def _process_args(self):
+        return [self._running_flag, self.instance_attributes, self._pipe_in]
 
     @property
     def collected(self):

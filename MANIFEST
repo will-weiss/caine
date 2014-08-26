@@ -5,4 +5,3 @@ requirements.txt
 setup.py
 caine/__init__.py
 caine/caine.py
-caine/utils.py

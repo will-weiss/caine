@@ -258,6 +258,7 @@ class SupportingCast(SupportingActor):
 class Collector(SupportingActor):
     """
     Data structure with operations for collecting objects put in its inbox.
+    Note: Collector.process may remain alive as long as Collector.collected is not used.
 
     Parameters
     __________
@@ -280,10 +281,9 @@ class Collector(SupportingActor):
         """
         all collected messages if inbox processing is complete, otherwise None
         """
-        if not self.process.is_alive():         # If the process is not alive,
-            if self._pipe_out.poll():           # and there's data in the output end of the pipe,
-                return self._pipe_out.recv()    # return the data in the pipe,
-        return None                             # otherwise return None.
+        if self._pipe_out.poll():           # If there's data in the output end of the pipe,
+            return self._pipe_out.recv()    # return the data in the pipe,
+        return None                         # otherwise return None.
 
 class Cut:
     """

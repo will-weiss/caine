@@ -70,39 +70,43 @@ def _listen_active(running_flag, instance_attributes, pipe_collect = None):
         if pipe_collect is not None: pipe_collect.send(prior_collected)                                             # send the previously collected messages through the pipe if appropriate,
         instance_attributes['callback'](instance_attributes)                                                        # and execute callback.
 
-def _handle_direct(exc, message, actors, actor_attributes):
+def _handle_direct(exc, message, actor_id, actors, instance_attributes):
     """
     method called upon exception
     """
-    print "Error for message:"
-    print message
-    for actor in actors: actor.terminate()
-    raise exc
+    print "Actor with id <%s> raised an exception." %(actor_id)
+    print "Message on which exception was raised: %s" %(message)
+    print "Exception type: %s" %(type(exc))
+    print "Exception message: %s" %(exc.message)
+    print "Exception args: %s" %(", ".join([str(arg) for arg in exc.args]))
+    print "Terminating actor with id <%s>..." %(actor_id)
+    actors[actor_id].terminate()
+    print "Actor with id <%s> terminated." %(actor_id)
 
 def _listen_passive(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, actor_attributes):
     """
     listens for incoming messages, passes exceptions and the message that caused them to handle
     """
-    while running_flag.value == 1:                                      # While inbox reception is ongoing:
+    while running_flag.value == 1:                                          # While inbox reception is ongoing:
         
-        try:                                                            # Try to get a message immediately.
-            assert handling_error_flag.value == 0                       # First check that the process isn't currently handling an error,
-            assert error_queue.empty()                                  # then check that the error queue is empty,
-            message = inbox.get_nowait()                                # now attempt to get a message at once.
-            if hasattr(message, '_caine_cut_'):                         # If message has attribute _caine_cut_,
-                if message._caine_cut_ == True:                         # and _caine_cut_ is equal to True,
-                    break                                               # break the listening process.
-            message_received_flag.value = 1                             # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
+        try:                                                                # Try to get a message immediately.
+            assert handling_error_flag.value == 0                           # First check that the process isn't currently handling an error,
+            assert error_queue.empty()                                      # then check that the error queue is empty,
+            message = inbox.get_nowait()                                    # now attempt to get a message at once.
+            if hasattr(message, '_caine_cut_'):                             # If message has attribute _caine_cut_,
+                if message._caine_cut_ == True:                             # and _caine_cut_ is equal to True,
+                    break                                                   # break the listening process.
+            message_received_flag.value = 1                                 # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
         
-        except:                                                         # If any of the above fails
-            continue                                                    # start the while loop again to ensure that the listening process should continue.
+        except:                                                             # If any of the above fails
+            continue                                                        # start the while loop again to ensure that the listening process should continue.
         
-        try: receive(message, actor_attributes)                         # With a non-Cut message try executing the receive function on the message.
-        except Exception as exc:                                        # If an exception is raised:
-            error_queue.put((exc, message, actor_attributes))           # put it, the message, and the actor atributes in the error queue
-            handling_error_flag.value = 1                               # and toggle the flag indicating that an error as being handled.
-            while handling_error_flag.value == 1:                       # While the flag is toggled to 1,
-                time.sleep(1)                                           # wait to proceed with the listening process.
+        try: receive(message, actor_attributes)                             # With a non-Cut message try executing the receive function on the message.
+        except Exception as exc:                                            # If an exception is raised:
+            error_queue.put((exc, message, actor_attributes['actor_id']))   # put it, the message, and the actor_id in the error queue,
+            handling_error_flag.value = 1                                   # and toggle the flag indicating that an error as being handled.
+            while handling_error_flag.value == 1:                           # While the flag is toggled to 1,
+                time.sleep(1)                                               # wait to proceed with the listening process.
 
 def _direct(running_flag, instance_attributes):
     """
@@ -113,12 +117,12 @@ def _direct(running_flag, instance_attributes):
     handling_error_flag = multiprocessing.Value('i', 0)     # This flag gets toggled to 1 when the process is handling an error and toggled back to zero when error handling is done.
     error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors.
     
-    # Create a list of actors, processes who each listen for messages from a common inbox, then start each actor.
-    actors = [multiprocessing.Process(
+    # Create a dictionary of actors, processes who each listen for messages from a common inbox, then start each actor.
+    actors = {i : multiprocessing.Process(
         target = _listen_passive,
         args = [instance_attributes['inbox'], instance_attributes['receive'], error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_attributes.items() + {'actor_id': i}.items())]
-    ) for i in xrange(instance_attributes['num'])]
-    for actor in actors: actor.start()
+    ) for i in xrange(instance_attributes['num'])}
+    for actor in actors.values(): actor.start()
      
     # Use a timeout if timeout is an integer, otherwise do not.
     # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
@@ -127,30 +131,30 @@ def _direct(running_flag, instance_attributes):
         signal.signal(signal.SIGALRM, functools.partial(_timeout, running_flag = running_flag))
         signal.alarm(instance_attributes['timeout'])
     
-    while running_flag.value == 1:                                                          # While inbox reception is ongoing:
+    while running_flag.value == 1:                                                                  # While inbox reception is ongoing:
         
-        try:                                                                                # Try the following:
-            if not any([actor.is_alive() for actor in actors]):                             # If no actor is alive,
-                running_flag.value = 0                                                      # flag the listening process as complete,
-                break                                                                       # and break the listening process.
+        try:                                                                                        # Try the following:
+            if not any([actor.is_alive() for actor in actors.values()]):                            # If no actor is alive,
+                running_flag.value = 0                                                              # flag the listening process as complete,
+                break                                                                               # and break the listening process.
             
-            if not error_queue.empty():                                                     # If there is an exception in the error queue,
-                if use_timeout: signal.alarm(0)                                             # turn the alarm off if appropriate,
-                (exc, message, actor_attributes) = error_queue.get()                        # catch the exception, the message, and the actor atributes,
-                instance_attributes['handle'](exc, message, actors, actor_attributes)       # and pass them to handle.
-                handling_error_flag.value = 0                                               # When handle is complete turn off the flag,
-                if use_timeout: signal.alarm(time_out)                                      # and reset the alarm if appropriate.
+            if not error_queue.empty():                                                             # If there is an exception in the error queue,
+                if use_timeout: signal.alarm(0)                                                     # turn the alarm off if appropriate,
+                (exc, message, actor_id) = error_queue.get()                                        # catch the exception, the message, and the actor_od,
+                instance_attributes['handle'](exc, message, actor_id, actors, instance_attributes)  # and pass them to handle.
+                handling_error_flag.value = 0                                                       # When handle is complete turn off the flag,
+                if use_timeout: signal.alarm(time_out)                                              # and reset the alarm if appropriate.
             
-            if use_timeout:                                                                 # If a timeout is being used,
-                if message_received_flag.value == 1:                                        # and a message was received
-                    signal.alarm(instance_attributes['timeout'])                            # reset the alarm,
-                    message_received_flag.value = 0                                         # and toggle the flag back to zero.
+            if use_timeout:                                                                         # If a timeout is being used,
+                if message_received_flag.value == 1:                                                # and a message was received
+                    signal.alarm(instance_attributes['timeout'])                                    # reset the alarm,
+                    message_received_flag.value = 0                                                 # and toggle the flag back to zero.
 
-        except:                                                                             # If any of the above failed,
-            continue                                                                        # jump to the top of the while loop to check if inbox reception is ongoing.
+        except:                                                                                     # If any of the above failed,
+            continue                                                                                # jump to the top of the while loop to check if inbox reception is ongoing.
     
-    if running_flag.value != -1:                                                            # If running_flag does not have a value of -1 indicating the process was not cut immediately,
-        instance_attributes['callback'](instance_attributes)                                # execute callback.
+    if running_flag.value != -1:                                                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
+        instance_attributes['callback'](instance_attributes)                                        # execute callback.
 
 def _collect(new_message, prior_collected, instance_attributes):
     """

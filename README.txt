@@ -6,9 +6,7 @@ supporting actors offer concurrent inbox processing
 Install
 ~~~~~~~
 
-.. raw:: html
-
-   <pre><code>pip install caine</code></pre>
+pip install caine
 
 Usage
 ~~~~~
@@ -100,4 +98,3 @@ for i in xrange(21,31):
 # Actor #2 says 19 squared is: 361
 # Actor #1 says 20 squared is: 400
 # Inbox processing done.
-

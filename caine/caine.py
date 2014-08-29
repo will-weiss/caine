@@ -95,8 +95,8 @@ def _listen_passive(inbox, receive, error_queue, running_flag, message_received_
             message = inbox.get_nowait()                                    # now attempt to get a message at once.
             if hasattr(message, '_caine_cut_'):                             # If message has attribute _caine_cut_,
                 if message._caine_cut_ == True:                             # and _caine_cut_ is equal to True,
-                    if cut_flag.value == 0: cut_flag.value = 1              # if cut_flag has a value of zero, then the other actors have not been cut yet, so we toggle the flag to 1,
-                    break                                                   # either way, break the listening process.
+                    cut_flag.value = 1                                      # toggle the flag to 1,
+                    break                                                   # and break the listening process.
             message_received_flag.value = 1                                 # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
         
         except:                                                             # If any of the above fails
@@ -107,7 +107,7 @@ def _listen_passive(inbox, receive, error_queue, running_flag, message_received_
             error_queue.put((exc, message, actor_attributes['actor_id']))   # put it, the message, and the actor_id in the error queue,
             handling_error_flag.value = 1                                   # and toggle the flag indicating that an error as being handled.
             while handling_error_flag.value == 1:                           # While the flag is toggled to 1,
-                time.sleep(1)                                               # wait to proceed with the listening process.
+                time.sleep(.1)                                              # wait to proceed with the listening process.
 
 def _direct(running_flag, instance_attributes):
     """
@@ -116,7 +116,7 @@ def _direct(running_flag, instance_attributes):
     running_flag.value = 1                                  # 1 : listening process is ongoing, 0 : listening process ended naturally, -1 : listening process was cut immediately
     message_received_flag = multiprocessing.Value('i', 0)   # 1 : some actor recently received a message, 0 : actor has not received a message since last checked
     handling_error_flag = multiprocessing.Value('i', 0)     # 1 : _direct process is currently handling an error, 0 :  _direct process is not currently handling an error
-    cut_flag = multiprocessing.Value('i', 0)                # 1 : an actor received cut, 0 : no actor has yet received cut, -1 : no longer check for whether an actor received cut
+    cut_flag = multiprocessing.Value('i', 0)                # 1 : an actor received cut, 0 : no actor has yet received cut
     error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors.
     
     # Create a dictionary of actors, processes who each listen for messages from a common inbox, then start each actor.
@@ -148,9 +148,10 @@ def _direct(running_flag, instance_attributes):
             handling_error_flag.value = 0                                                           # When the error queue is empty, turn off the flag.    
             
             if cut_flag.value == 1:                                                                 # If one of the actors received Cut,
-                for _ in xrange(instance_attributes['num'] - 1):                                    # put num - 1
-                    instance_attributes['inbox'].put(Cut)                                           # copies of Cut in the inbox to cut the other actors.
-                cut_flag.value = -1                                                                 # Set the cut_flag to -1 such that this only happens once per run of _direct.
+                if use_timeout: signal.alarm(0)                                                     # turn off the alarm,
+                while not instance_attributes['inbox'].empty(): time.sleep(.1)                      # wait for the inbox to be empty,
+                running_flag.value = 0                                                              # flag the listening process as complete,      
+                break                                                                               # and break the listening process.
 
             if use_timeout:                                                                         # If a timeout is being used,
                 if message_received_flag.value == 1:                                                # and a message was received
@@ -161,7 +162,8 @@ def _direct(running_flag, instance_attributes):
             continue                                                                                # jump to the top of the while loop to check if inbox reception is ongoing.
     
     if running_flag.value != -1:                                                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
-        instance_attributes['callback'](instance_attributes)                                        # execute callback.
+        while any([actor.is_alive() for actor in actors.values()]): time.sleep(.1)                  # wait for the actors to finish,                               
+        instance_attributes['callback'](instance_attributes)                                        # then execute callback.
 
 def _collect(new_message, prior_collected, instance_attributes):
     """
@@ -215,7 +217,7 @@ class SupportingActor(object):
         """
         multiprocessing.Process
         """
-        if self._process is None:
+        if self._process is None: 
             self._process = multiprocessing.Process(target = self._process_func, args = self._process_args)
         return self._process
     
@@ -238,8 +240,7 @@ class SupportingActor(object):
         if self._process is not None:
             print "Ending existing process..."
             self.cut(immediate = True)
-            while self._process.is_alive():
-                time.sleep(1)
+            while self._process.is_alive(): time.sleep(.1)
             print "Existing process ended."
         self._process = None
         self.process.start()

@@ -35,7 +35,7 @@ def _listen_active(running_flag, instance_attributes, pipe_collect = None):
     """
     listens for incoming messages, executes callback when inbox reception complete, executes handle when exception raised
     """
-    running_flag.value = 1                                  # This flag indicates whether the listening process is ongoing.
+    running_flag.value = 1                                  # 1 : listening process is ongoing, 0 : listening process ended naturally, -1 : listening process was cut immediately
     if pipe_collect is not None: prior_collected = None     # We keep track of previously collected messages if pipe_collect is not None.
     
     # Use a timeout if timeout is an integer, otherwise do not.
@@ -83,7 +83,7 @@ def _handle_direct(exc, message, actor_id, actors, instance_attributes):
     actors[actor_id].terminate()
     print "Actor with id <%s> terminated." %(actor_id)
 
-def _listen_passive(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, actor_attributes):
+def _listen_passive(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, cut_flag, actor_attributes):
     """
     listens for incoming messages, passes exceptions and the message that caused them to handle
     """
@@ -95,7 +95,8 @@ def _listen_passive(inbox, receive, error_queue, running_flag, message_received_
             message = inbox.get_nowait()                                    # now attempt to get a message at once.
             if hasattr(message, '_caine_cut_'):                             # If message has attribute _caine_cut_,
                 if message._caine_cut_ == True:                             # and _caine_cut_ is equal to True,
-                    break                                                   # break the listening process.
+                    if cut_flag.value == 0: cut_flag.value = 1              # if cut_flag has a value of zero, then the other actors have not been cut yet, so we toggle the flag to 1,
+                    break                                                   # either way, break the listening process.
             message_received_flag.value = 1                                 # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
         
         except:                                                             # If any of the above fails
@@ -112,15 +113,16 @@ def _direct(running_flag, instance_attributes):
     """
     cast and direct multiple actors receiving messages from a common inbox
     """
-    running_flag.value = 1                                  # This flag indicates whether the listening process is ongoing.
-    message_received_flag = multiprocessing.Value('i', 0)   # This flag gets toggled to 1 when individual actors receive messages, which causes the process to reset the timeout alarm.
-    handling_error_flag = multiprocessing.Value('i', 0)     # This flag gets toggled to 1 when the process is handling an error and toggled back to zero when error handling is done.
+    running_flag.value = 1                                  # 1 : listening process is ongoing, 0 : listening process ended naturally, -1 : listening process was cut immediately
+    message_received_flag = multiprocessing.Value('i', 0)   # 1 : some actor recently received a message, 0 : actor has not received a message since last checked
+    handling_error_flag = multiprocessing.Value('i', 0)     # 1 : _direct process is currently handling an error, 0 :  _direct process is not currently handling an error
+    cut_flag = multiprocessing.Value('i', 0)                # 1 : an actor received cut, 0 : no actor has yet received cut, -1 : no longer check for whether an actor received cut
     error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors.
     
     # Create a dictionary of actors, processes who each listen for messages from a common inbox, then start each actor.
     actors = {i : multiprocessing.Process(
         target = _listen_passive,
-        args = [instance_attributes['inbox'], instance_attributes['receive'], error_queue, running_flag, message_received_flag, handling_error_flag, dict(instance_attributes.items() + {'actor_id': i}.items())]
+        args = [instance_attributes['inbox'], instance_attributes['receive'], error_queue, running_flag, message_received_flag, handling_error_flag, cut_flag, dict(instance_attributes.items() + {'actor_id': i}.items())]
     ) for i in xrange(instance_attributes['num'])}
     for actor in actors.values(): actor.start()
      
@@ -138,13 +140,18 @@ def _direct(running_flag, instance_attributes):
                 running_flag.value = 0                                                              # flag the listening process as complete,
                 break                                                                               # and break the listening process.
             
-            if not error_queue.empty():                                                             # If there is an exception in the error queue,
+            while not error_queue.empty():                                                          # If there is an exception in the error queue,
                 if use_timeout: signal.alarm(0)                                                     # turn the alarm off if appropriate,
                 (exc, message, actor_id) = error_queue.get()                                        # catch the exception, the message, and the actor_od,
                 instance_attributes['handle'](exc, message, actor_id, actors, instance_attributes)  # and pass them to handle.
-                handling_error_flag.value = 0                                                       # When handle is complete turn off the flag,
-                if use_timeout: signal.alarm(time_out)                                              # and reset the alarm if appropriate.
+                if use_timeout: signal.alarm(time_out)                                              # Reset the alarm if appropriate.
+            handling_error_flag.value = 0                                                           # When the error queue is empty, turn off the flag.    
             
+            if cut_flag.value == 1:                                                                 # If one of the actors received Cut,
+                for _ in xrange(instance_attributes['num'] - 1):                                    # put num - 1
+                    instance_attributes['inbox'].put(Cut)                                           # copies of Cut in the inbox to cut the other actors.
+                cut_flag.value = -1                                                                 # Set the cut_flag to -1 such that this only happens once per run of _direct.
+
             if use_timeout:                                                                         # If a timeout is being used,
                 if message_received_flag.value == 1:                                                # and a message was received
                     signal.alarm(instance_attributes['timeout'])                                    # reset the alarm,
@@ -221,11 +228,8 @@ class SupportingActor(object):
         immediate : boolean, default False
             If True, inbox processing is ended in place, otherwise inbox processing continues for all values already in the queue.
         """
-        if immediate:
-            self._running_flag.value = -1
-        else:
-            use_num = 1 if not hasattr(self,'num') else self.num
-            for _ in xrange(use_num): self.inbox.put(Cut)            
+        if immediate: self._running_flag.value = -1
+        else: self.inbox.put(Cut)
 
     def __call__(self):
         """

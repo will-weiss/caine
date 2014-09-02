@@ -10,3 +10,4 @@ v0.0.9, 2014-08-26 -- Collector.collected can now be called multiple times.
 v0.0.10, 2014-08-27 -- Error handling for SupportingCast improved.
 v0.0.11, 2014-08-29 -- Callback only called after all actors complete, cut only needed once per inbox.
 v0.1.1, 2014-09-02 -- SupportingCast may add remove actors on the fly.
+v0.1.2, 2014-09-02 -- Adding/removing actors requires no knowledge of current state.

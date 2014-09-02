@@ -111,7 +111,6 @@ def _direct(running_flag, num_actor_add, instance_attributes):
     cast and direct multiple actors receiving messages from a common inbox
     """
     running_flag.value = 1                                  # 1 : inbox reception is ongoing, 0 : inbox reception ended naturally, -1 : inbox reception was cut immediately
-    num_actor_add.value += instance_attributes['num']       # To start, the number of actors to add is increased by the num value for the instance of supporting cast
     del instance_attributes['num']                          # The num value for the instance of supporting cast may change so it is dropped as an attribute
     message_received_flag = multiprocessing.Value('i', 0)   # 1 : some actor recently received a message, 0 : actor has not received a message since last checked
     handling_error_flag = multiprocessing.Value('i', 0)     # 1 : _direct process is currently handling an error, 0 :  _direct process is not currently handling an error
@@ -278,7 +277,7 @@ class SupportingCast(SupportingActor):
         SupportingActor.__init__(self, **kwargs)
         self.handle = _handle_direct
         self._process_func = _direct
-        self._num_actor_add = multiprocessing.Value('i', 0)
+        self._num_actor_add = multiprocessing.Value('i', num)
 
     @property
     def _process_args(self):
@@ -294,7 +293,7 @@ class SupportingCast(SupportingActor):
             The number of actors to add
         """
         self.num += num
-        if self.process.is_alive(): self._num_actor_add.value += num
+        self._num_actor_add.value += num
 
     def remove(self, num = 1):
         """
@@ -308,7 +307,7 @@ class SupportingCast(SupportingActor):
         if num > self.num:
             raise RuntimeError("Attempting to remove more actors than exist!")
         self.num -= num
-        if self.process.is_alive(): self._num_actor_add.value -= num
+        self._num_actor_add.value -= num
 
 class Collector(SupportingActor):
     """

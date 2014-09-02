@@ -286,7 +286,7 @@ class SupportingCast(SupportingActor):
 
     def add(self, num = 1):
         """
-        adds actor(s) to process inbox when called
+        adds actor(s) to process inbox
         
         Parameters
         __________
@@ -298,7 +298,7 @@ class SupportingCast(SupportingActor):
 
     def remove(self, num = 1):
         """
-        removes actor(s) processing inbox when called
+        removes existing actor(s)
         
         Parameters
         __________

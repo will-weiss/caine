@@ -106,7 +106,7 @@ def _listen_passive(inbox, receive, listening_flag, message_received_flag, handl
             while handling_error_flag.value == 1:                           # While the flag is toggled to 1,
                 time.sleep(.1)                                              # wait to proceed with the listening process.
 
-def _direct(running_flag, num_actor_add, instance_attributes):
+def _direct(running_flag, num_actor_to_add, num_actor_added, instance_attributes):
     """
     cast and direct multiple actors receiving messages from a common inbox
     """
@@ -129,10 +129,10 @@ def _direct(running_flag, num_actor_add, instance_attributes):
         
         try:                                                                                        # Try the following:
 
-            if num_actor_add.value != 0:                                                            # If the number of actors to add is not equal to zero,
+            if num_actor_to_add.value != 0:                                                         # If the number of actors to add is not equal to zero,
                 if use_timeout: signal.alarm(0)                                                     # Turn off the alarm if appropriate.
                 n = len(actors)                                                                     # n is the number of actors we currently have.
-                if num_actor_add.value > 0:                                                         # If the number of actors to add is positive.
+                if num_actor_to_add.value > 0:                                                      # If the number of actors to add is positive.
                     actors[n] = {'listening_flag' : multiprocessing.Value('i', 1)}                  # Create a dictionary for a new actor with a listening flag toggled to 1 indicating the listening process is ongoing.
                     actors[n]['process'] = multiprocessing.Process(                                 # The new actor has a process which runs _listen_passive and is passed the necessary arguments.
                         target = _listen_passive, 
@@ -141,12 +141,14 @@ def _direct(running_flag, num_actor_add, instance_attributes):
                                 handling_error_flag, cut_flag, error_queue, 
                                 dict(instance_attributes.items() + {'actor_id': n}.items())])
                     actors[n]['process'].start()                                                    # The new actor process is started.
-                    num_actor_add.value -= 1                                                        # The number of actors to add decreases by 1.
-                elif num_actor_add.value < 0:                                                       # If the number of actors to add is negative remove an actor
+                    num_actor_to_add.value -= 1                                                     # The number of actors to add decreases by 1.
+                    num_actor_added.value += 1                                                      # The number of actors added increases by 1.
+                elif num_actor_to_add.value < 0:                                                    # If the number of actors to add is negative remove an actor
                     actors[n-1]['listening_flag'].value = 0                                         # by toggling off its listening flag,
                     while actors[n-1]['process'].is_alive(): time.sleep(.1)                         # waiting for the process to stop
                     del actors[n-1]                                                                 # then removing the actor from the actors dictionary.
-                    num_actor_add.value += 1                                                        # The number of actors to add increases by 1 (toward zero).
+                    num_actor_to_add.value += 1                                                     # The number of actors to add increases by 1 (toward zero).
+                    num_actor_added.value -= 1                                                      # The number of actors added decreases by 1.
                 signal.alarm(instance_attributes['timeout'])                                        # Reset the alarm if appropriate
                 continue                                                                            # and jump to the top of the loop.
 
@@ -178,6 +180,12 @@ def _direct(running_flag, num_actor_add, instance_attributes):
     for actor in actors.values(): actor['listening_flag'].value = 0                                 # Once the main loop is escaped, the actors are toggled to stop listening,
     while any([actor['process'].is_alive() for actor in actors.values()]): time.sleep(.1)           # sleep while the actors are ongoing.
     if running_flag.value != -1: instance_attributes['callback'](instance_attributes)               # If running_flag does not have a value of -1 indicating the process was not cut immediately, execute callback.
+
+def _add(num_actor_to_add, num):
+    """
+    adds num to num_actor_to_add
+    """
+    num_actor_to_add.value += num 
 
 def _collect(new_message, prior_collected, instance_attributes):
     """
@@ -245,7 +253,7 @@ class SupportingActor(object):
             If True, inbox processing is ended in place, otherwise inbox processing continues until queue is empty.
         """
         if immediate: self._running_flag.value = -1     # Breaks inbox reception loop
-        else: self.inbox.put(Cut)                       # 
+        else: self.inbox.put(Cut)                       # Inbox processing terminates when inbox is empty
 
     def __call__(self):
         """
@@ -273,15 +281,16 @@ class SupportingCast(SupportingActor):
         Additional keyword arguments are set as attributes
     """
     def __init__(self, num = 1, **kwargs):
-        self.num = num
         SupportingActor.__init__(self, **kwargs)
         self.handle = _handle_direct
         self._process_func = _direct
-        self._num_actor_add = multiprocessing.Value('i', num)
+        self._num_actor_to_add = multiprocessing.Value('i', num)                        # To start there are num actors to add
+        self._num_actors_added = multiprocessing.Value('i', 0)                          # and zero actors have been added
+        self._add = functools.partial(_add, num_actor_to_add = self._num_actor_to_add)  # we pass the num_actor_to_add value ahead of time to _add
 
     @property
-    def _process_args(self):
-        return [self._running_flag, self._num_actor_add, self.instance_attributes]
+    def num(self):
+        return self._num_actor_to_add.value + self._num_actors_added.value
 
     def add(self, num = 1):
         """
@@ -292,8 +301,7 @@ class SupportingCast(SupportingActor):
         num : int, default 1
             The number of actors to add
         """
-        self.num += num
-        self._num_actor_add.value += num
+        self._add(num = num)
 
     def remove(self, num = 1):
         """
@@ -304,10 +312,11 @@ class SupportingCast(SupportingActor):
         num : int, default 1
             The number of actors to remove
         """
-        if num > self.num:
-            raise RuntimeError("Attempting to remove more actors than exist!")
-        self.num -= num
-        self._num_actor_add.value -= num
+        self._add(num = -num)
+
+    @property
+    def _process_args(self):
+        return [self._running_flag, self._num_actor_to_add, self._num_actors_added, self.instance_attributes]
 
 class Collector(SupportingActor):
     """

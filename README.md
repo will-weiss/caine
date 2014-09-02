@@ -1,7 +1,7 @@
 caine
 =====
 
-supporting actors offer concurrent inbox processing
+supporting actors process queues concurrently
 
 ### Install
 

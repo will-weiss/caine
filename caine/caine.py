@@ -45,16 +45,14 @@ def _listen_active(running_flag, instance_attributes, pipe_collect = None):
         signal.signal(signal.SIGALRM, functools.partial(_timeout, running_flag = running_flag))
         signal.alarm(instance_attributes['timeout'])
              
-    while running_flag.value == 1:                                                                                  # While inbox reception is ongoing:
+    while running_flag.value == 1:                                                                                  # While the listening process is ongoing:
         
         try:                                                                                                        # Try
             message = instance_attributes['inbox'].get_nowait()                                                     # to get a message immediately.
-            if hasattr(message, '_caine_cut_'):                                                                     # If message has attribute _caine_cut_,
-                if message._caine_cut_ == True:                                                                     # and _caine_cut_ is equal to True,
-                    running_flag.value = 0                                                                          # flag inbox reception as not ongoing
-                    break                                                                                           # and break the listening process
+            if message is Cut:                                                                                      # If message is attribute Cut,
+                running_flag.value = 0                                                                              # flag inbox reception as not ongoing
+                break                                                                                               # and break the listening process                                                                                    
             if use_timeout: signal.alarm(0)                                                                         # Alarm turned off while running receive on message
-        
         except:                                                                                                     # If any of the above fails
             continue                                                                                                # start the while loop again to ensure that the listening process should continue.
         
@@ -83,20 +81,19 @@ def _handle_direct(exc, message, actor_id, actors, instance_attributes):
     actors[actor_id].terminate()
     print "Actor with id <%s> terminated." %(actor_id)
 
-def _listen_passive(inbox, receive, error_queue, running_flag, message_received_flag, handling_error_flag, cut_flag, actor_attributes):
+def _listen_passive(inbox, receive, listening_flag, message_received_flag, handling_error_flag, cut_flag, error_queue, actor_attributes):
     """
     listens for incoming messages, passes exceptions and the message that caused them to handle
     """
-    while running_flag.value == 1:                                          # While inbox reception is ongoing:
+    while listening_flag.value == 1:                                        # While the listening process is ongoing:
         
         try:                                                                # Try to get a message immediately.
             assert handling_error_flag.value == 0                           # First check that the process isn't currently handling an error,
             assert error_queue.empty()                                      # then check that the error queue is empty,
             message = inbox.get_nowait()                                    # now attempt to get a message at once.
-            if hasattr(message, '_caine_cut_'):                             # If message has attribute _caine_cut_,
-                if message._caine_cut_ == True:                             # and _caine_cut_ is equal to True,
-                    cut_flag.value = 1                                      # toggle the flag to 1,
-                    break                                                   # and break the listening process.
+            if message is Cut:                                              # If the message is Cut,
+                cut_flag.value = 1                                          # toggle the flag to 1,
+                break                                                       # and break the listening process.
             message_received_flag.value = 1                                 # If we get a non-Cut message without waiting, toggle flag indicating that a message was received.
         
         except:                                                             # If any of the above fails
@@ -109,23 +106,19 @@ def _listen_passive(inbox, receive, error_queue, running_flag, message_received_
             while handling_error_flag.value == 1:                           # While the flag is toggled to 1,
                 time.sleep(.1)                                              # wait to proceed with the listening process.
 
-def _direct(running_flag, instance_attributes):
+def _direct(running_flag, num_actor_add, instance_attributes):
     """
     cast and direct multiple actors receiving messages from a common inbox
     """
-    running_flag.value = 1                                  # 1 : listening process is ongoing, 0 : listening process ended naturally, -1 : listening process was cut immediately
+    running_flag.value = 1                                  # 1 : inbox reception is ongoing, 0 : inbox reception ended naturally, -1 : inbox reception was cut immediately
+    num_actor_add.value += instance_attributes['num']       # To start, the number of actors to add is increased by the num value for the instance of supporting cast
+    del instance_attributes['num']                          # The num value for the instance of supporting cast may change so it is dropped as an attribute
     message_received_flag = multiprocessing.Value('i', 0)   # 1 : some actor recently received a message, 0 : actor has not received a message since last checked
     handling_error_flag = multiprocessing.Value('i', 0)     # 1 : _direct process is currently handling an error, 0 :  _direct process is not currently handling an error
     cut_flag = multiprocessing.Value('i', 0)                # 1 : an actor received cut, 0 : no actor has yet received cut
-    error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors.
-    
-    # Create a dictionary of actors, processes who each listen for messages from a common inbox, then start each actor.
-    actors = {i : multiprocessing.Process(
-        target = _listen_passive,
-        args = [instance_attributes['inbox'], instance_attributes['receive'], error_queue, running_flag, message_received_flag, handling_error_flag, cut_flag, dict(instance_attributes.items() + {'actor_id': i}.items())]
-    ) for i in xrange(instance_attributes['num'])}
-    for actor in actors.values(): actor.start()
-     
+    error_queue = multiprocessing.Manager().Queue()         # This queue holds information about errors
+    actors = {}                                             # This dictionary holds the listening flags and processes for each actor
+
     # Use a timeout if timeout is an integer, otherwise do not.
     # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
     use_timeout = True if type(instance_attributes['timeout']) == int else False                                                                               
@@ -136,13 +129,35 @@ def _direct(running_flag, instance_attributes):
     while running_flag.value == 1:                                                                  # While inbox reception is ongoing:
         
         try:                                                                                        # Try the following:
-            if not any([actor.is_alive() for actor in actors.values()]):                            # If no actor is alive,
-                running_flag.value = 0                                                              # flag the listening process as complete,
-                break                                                                               # and break the listening process.
+
+            if num_actor_add.value != 0:                                                            # If the number of actors to add is not equal to zero,
+                if use_timeout: signal.alarm(0)                                                     # Turn off the alarm if appropriate.
+                n = len(actors)                                                                     # n is the number of actors we currently have.
+                if num_actor_add.value > 0:                                                         # If the number of actors to add is positive.
+                    actors[n] = {'listening_flag' : multiprocessing.Value('i', 1)}                  # Create a dictionary for a new actor with a listening flag toggled to 1 indicating the listening process is ongoing.
+                    actors[n]['process'] = multiprocessing.Process(                                 # The new actor has a process which runs _listen_passive and is passed the necessary arguments.
+                        target = _listen_passive, 
+                        args = [instance_attributes['inbox'], instance_attributes['receive'], 
+                                actors[n]['listening_flag'], message_received_flag, 
+                                handling_error_flag, cut_flag, error_queue, 
+                                dict(instance_attributes.items() + {'actor_id': n}.items())])
+                    actors[n]['process'].start()                                                    # The new actor process is started.
+                    num_actor_add.value -= 1                                                        # The number of actors to add decreases by 1.
+                elif num_actor_add.value < 0:                                                       # If the number of actors to add is negative remove an actor
+                    actors[n-1]['listening_flag'].value = 0                                         # by toggling off its listening flag,
+                    while actors[n-1]['process'].is_alive(): time.sleep(.1)                         # waiting for the process to stop
+                    del actors[n-1]                                                                 # then removing the actor from the actors dictionary.
+                    num_actor_add.value += 1                                                        # The number of actors to add increases by 1 (toward zero).
+                signal.alarm(instance_attributes['timeout'])                                        # Reset the alarm if appropriate
+                continue                                                                            # and jump to the top of the loop.
+
+            if not any([actor['process'].is_alive() for actor in actors.values()]):                 # If no actor is alive,
+                running_flag.value = 0                                                              # flag inbox reception as complete,
+                break                                                                               # and break inbox reception.
             
             while not error_queue.empty():                                                          # If there is an exception in the error queue,
                 if use_timeout: signal.alarm(0)                                                     # turn the alarm off if appropriate,
-                (exc, message, actor_id) = error_queue.get()                                        # catch the exception, the message, and the actor_od,
+                (exc, message, actor_id) = error_queue.get()                                        # catch the exception, the message, and the actor_id,
                 instance_attributes['handle'](exc, message, actor_id, actors, instance_attributes)  # and pass them to handle.
                 if use_timeout: signal.alarm(time_out)                                              # Reset the alarm if appropriate.
             handling_error_flag.value = 0                                                           # When the error queue is empty, turn off the flag.    
@@ -150,8 +165,8 @@ def _direct(running_flag, instance_attributes):
             if cut_flag.value == 1:                                                                 # If one of the actors received Cut,
                 if use_timeout: signal.alarm(0)                                                     # turn off the alarm,
                 while not instance_attributes['inbox'].empty(): time.sleep(.1)                      # wait for the inbox to be empty,
-                running_flag.value = 0                                                              # flag the listening process as complete,      
-                break                                                                               # and break the listening process.
+                running_flag.value = 0                                                              # flag inbox reception as complete,      
+                break                                                                               # and break inbox reception.
 
             if use_timeout:                                                                         # If a timeout is being used,
                 if message_received_flag.value == 1:                                                # and a message was received
@@ -161,9 +176,9 @@ def _direct(running_flag, instance_attributes):
         except:                                                                                     # If any of the above failed,
             continue                                                                                # jump to the top of the while loop to check if inbox reception is ongoing.
     
-    if running_flag.value != -1:                                                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
-        while any([actor.is_alive() for actor in actors.values()]): time.sleep(.1)                  # wait for the actors to finish,                               
-        instance_attributes['callback'](instance_attributes)                                        # then execute callback.
+    for actor in actors.values(): actor['listening_flag'].value = 0                                 # Once the main loop is escaped, the actors are toggled to stop listening,
+    while any([actor['process'].is_alive() for actor in actors.values()]): time.sleep(.1)           # sleep while the actors are ongoing.
+    if running_flag.value != -1: instance_attributes['callback'](instance_attributes)               # If running_flag does not have a value of -1 indicating the process was not cut immediately, execute callback.
 
 def _collect(new_message, prior_collected, instance_attributes):
     """
@@ -228,10 +243,10 @@ class SupportingActor(object):
         Parameters
         __________
         immediate : boolean, default False
-            If True, inbox processing is ended in place, otherwise inbox processing continues for all values already in the queue.
+            If True, inbox processing is ended in place, otherwise inbox processing continues until queue is empty.
         """
-        if immediate: self._running_flag.value = -1
-        else: self.inbox.put(Cut)
+        if immediate: self._running_flag.value = -1     # Breaks inbox reception loop
+        else: self.inbox.put(Cut)                       # 
 
     def __call__(self):
         """
@@ -263,6 +278,19 @@ class SupportingCast(SupportingActor):
         SupportingActor.__init__(self, **kwargs)
         self.handle = _handle_direct
         self._process_func = _direct
+        self._num_actor_add = multiprocessing.Value('i', 0)
+
+    @property
+    def _process_args(self):
+        return [self._running_flag, self._num_actor_add, self.instance_attributes]
+
+    def add(self, num = 1):
+        self.num += num
+        if self.process.is_alive(): self._num_actor_add.value += num
+
+    def remove(self, num = 1):
+        self.num -= num
+        if self.process.is_alive(): self._num_actor_add.value -= num
 
 class Collector(SupportingActor):
     """
@@ -297,6 +325,5 @@ class Collector(SupportingActor):
 
 class Cut:
     """
-    when put in inbox of SupportingActor or SupportingCast instance shuts down inbox reception
+    shuts down inbox reception when put in inbox of SupportingActor or SupportingCast instance
     """
-    _caine_cut_ = True

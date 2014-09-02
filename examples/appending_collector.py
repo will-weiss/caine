@@ -13,7 +13,7 @@ for i in xrange(11):
 
 c.cut()
 
-while c.process.is_alive():
+while c.collected is None:
   pass
 
 print c.collected

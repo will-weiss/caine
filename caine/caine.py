@@ -285,10 +285,28 @@ class SupportingCast(SupportingActor):
         return [self._running_flag, self._num_actor_add, self.instance_attributes]
 
     def add(self, num = 1):
+        """
+        adds actor(s) to process inbox when called
+        
+        Parameters
+        __________
+        num : int, default 1
+            The number of actors to add
+        """
         self.num += num
         if self.process.is_alive(): self._num_actor_add.value += num
 
     def remove(self, num = 1):
+        """
+        removes actor(s) processing inbox when called
+        
+        Parameters
+        __________
+        num : int, default 1
+            The number of actors to remove
+        """
+        if num > self.num:
+            raise RuntimeError("Attempting to remove more actors than exist!")
         self.num -= num
         if self.process.is_alive(): self._num_actor_add.value -= num
 

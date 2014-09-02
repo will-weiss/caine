@@ -1,7 +1,13 @@
 caine
 =====
 
-supporting actors offer concurrent inbox processing
+supporting actors process queues concurrently
+
+Contact/Contribute
+~~~~~~~
+
+Email: will.weiss1230@gmail.com
+GitHub:  https://github.com/will-weiss/caine
 
 Install
 ~~~~~~~

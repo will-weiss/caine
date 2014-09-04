@@ -2,7 +2,6 @@ import multiprocessing
 import signal
 import time
 import functools
-import types
 import inspect
 
 def _receive(message, instance_attributes):
@@ -160,7 +159,7 @@ def _direct(running_flag, num_actor_to_add, num_actor_added, instance_attributes
                 if use_timeout: signal.alarm(0)                                                     # turn the alarm off if appropriate,
                 (exc, message, actor_id) = error_queue.get()                                        # catch the exception, the message, and the actor_id,
                 instance_attributes['handle'](exc, message, actor_id, actors, instance_attributes)  # and pass them to handle.
-                if use_timeout: signal.alarm(time_out)                                              # Reset the alarm if appropriate.
+                if use_timeout: signal.alarm(instance_attributes['timeout'])                        # Reset the alarm if appropriate.
             handling_error_flag.value = 0                                                           # When the error queue is empty, turn off the flag.    
             
             if cut_flag.value == 1:                                                                 # If one of the actors received Cut,

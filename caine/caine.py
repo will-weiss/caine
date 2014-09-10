@@ -198,7 +198,9 @@ def _listen_active(running_flag, instance_attributes, collect_outbox = None):
     listens for incoming messages, executes callback when inbox reception complete, executes handle when exception raised
     """
     running_flag.value = 1                                  # Flag inbox reception as ongoing.
-    if collect_outbox is not None: prior_collected = None   # We keep track of previously collected messages if collect_outbox is not None.
+    if collect_outbox is not None:                          # If collect_outbox is not None,
+        prior_collected = None                              # previously collected messages are None,
+        instance_attributes['collected'] = None             # and the collected attribute is None.
     
     # Use a timeout if timeout is an integer, otherwise do not.
     # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
@@ -227,8 +229,10 @@ def _listen_active(running_flag, instance_attributes, collect_outbox = None):
         except Exception as exc: instance_attributes['handle'](exc, message, instance_attributes)                   # If an exception is raised, pass it, the message, and the instance atributes to handle.
     
     if running_flag.value != -1:                                                                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
-        if collect_outbox is not None: collect_outbox.put(prior_collected)                                          # put the previously collected messages in the outbox if appropriate,
-        instance_attributes['callback'](instance_attributes)                                                        # and execute callback.
+        if collect_outbox is not None:                                                                              # If collect_outbox is not None,
+            collect_outbox.put(prior_collected)                                                                     # put the previously collected messages in the outbox,
+            instance_attributes['collected'] = prior_collected                                                      # and set the collected attribute as prior_collected.
+        instance_attributes['callback'](instance_attributes)                                                        # Execute callback.
 
 def _handle_direct(exc, message, actor_id, actors, instance_attributes):
     """

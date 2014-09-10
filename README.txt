@@ -208,8 +208,7 @@ my_cast.cut()
 # ------
 # I am an actor from the original cast! I got message #0
 # I am an actor from the original cast! I got message #1
-# I am an actor from the original cast! I got message #2
+# I am an actor created later! I got message #2
 # I am an actor created later! I got message #3
-# I am an actor created later! I got message #5
 # I am an actor created later! I got message #4
 # End scene.

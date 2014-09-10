@@ -16,3 +16,4 @@ v0.1.4, 2014-09-04 -- Minor bug fix.
 v0.1.5, 2014-09-10 -- Collector uses queue, more examples & documentation.
 v0.1.6, 2014-09-10 -- Collector has collected attribute for use in callback.
 v0.1.7, 2014-09-10 -- Improved docs, examples.
+v0.1.8, 2014-09-10 -- Doc fix.

@@ -4,6 +4,8 @@ from caine import SupportingCast
 import time
 import random
 
+num_actors = 3 # SupportingCast will have 3 actors
+
 def wait_deliver(message, actor_attributes):
     wait_secs = random.randint(1,5)
     time.sleep(wait_secs)
@@ -12,12 +14,13 @@ def wait_deliver(message, actor_attributes):
 def end_scene(instance_attributes):
     print "End scene."
 
-my_cast = SupportingCast(receive = wait_deliver, callback = end_scene, num = 3)
-
-for i in xrange(1,11):
-    my_cast.inbox.put("I got message #%s." %(i))
+my_cast = SupportingCast(receive = wait_deliver, callback = end_scene, num = num_actors)
 
 my_cast()
+
+for i in xrange(10):
+    my_cast.inbox.put("I got message #%s." %(i))
+
 my_cast.cut()
 
 # Output

@@ -29,9 +29,9 @@ my_actor.inbox.put("She was only sixteen years old!")
 my_actor.inbox.put("Not many people know that!")
 
 # Tell my_actor that it is complete when its inbox is empty.
-my_actor.cut()
+my_actor.cut()</code></pre>
 
-# Output
+<pre><code># Output
 # ------
 # Michael says, "You were only supposed to blow the bloody doors off!"
 # Michael says, "She was only sixteen years old!"
@@ -61,9 +61,9 @@ my_cast()
 for i in xrange(10):
     my_cast.inbox.put("I got message #%s." %(i))
 
-my_cast.cut()
+my_cast.cut()</code></pre>
 
-# Output
+<pre><code># Output
 # ------
 # Actor #0 waited 2 seconds to say, "I got message #0."
 # Actor #0 waited 1 seconds to say, "I got message #3."
@@ -100,9 +100,9 @@ my_collector()
 for i in xrange(10):
     my_collector.inbox.put(i)
 
-my_collector.cut()
+my_collector.cut()</code></pre>
 
-# Output
+<pre><code># Output
 # ------
 # I got the even number: 0
 # I got the even number: 2
@@ -125,9 +125,9 @@ time.sleep(6)
 my_cast.cut(immediate = True) 
 
 for i in xrange(3):
-    my_cast.inbox.put("I did not get this message in time to say it!")
+    my_cast.inbox.put("I did not get this message in time to say it!")</code></pre>
 
-# Output
+<pre><code># Output
 # ------
 # Actor #2 waited 2 seconds to say, "I got this message in time to say it!"
 # Actor #0 waited 4 seconds to say, "I got this message in time to say it!"
@@ -159,9 +159,9 @@ my_cast.add(add_actor_count)
 for i in xrange(3,6):
     my_cast.inbox.put(i)
 
-my_cast.cut()
+my_cast.cut()</code></pre>
 
-# Output
+<pre><code># Output
 # ------
 # I am an actor from the original cast! I got message #0
 # I am an actor from the original cast! I got message #1

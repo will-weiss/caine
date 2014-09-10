@@ -17,7 +17,8 @@ def deliver(line, instance_attributes):
 def end_scene(instance_attributes):
     print "End scene."
 
-# An actor which executes deliver using messages in its inbox and executes end_scene on completion
+# An actor which executes deliver using messages in its inbox 
+# and executes end_scene on completion
 my_actor = SupportingActor(receive = deliver, callback = end_scene, name = 'Michael')
 
 # Call my_actor to commence inbox processing.
@@ -140,7 +141,7 @@ add_actor_count = 3      # The cast will have 3 actors added to it
 
 def deliver(message_num, actor_attributes):
     time.sleep(1)
-    if actor_attributes['actor_id'] < original_actor_count:
+    if actor_attributes['actor_id'] &lt original_actor_count:
         print 'I am an actor from the original cast! I got message #%s' %(message_num)
     else:
         print 'I am an actor created later! I got message #%s' %(message_num)

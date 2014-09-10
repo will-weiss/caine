@@ -19,88 +19,84 @@ Usage
 
 from caine import SupportingActor
 
-def print_square(message, instance_attributes):
-   print "%s says %s squared is: %s" %(instance_attributes['name'] , message, message**2)
+def deliver(line, instance_attributes):
+    print '%s says, "%s"' %(instance_attributes['name'], line)
 
-square_printing_actor = SupportingActor(receive = print_square, timeout = 5, name = 'Bob')
+def end_scene(instance_attributes):
+    print "End scene."
 
-# Call an instance of SupportingActor to commence receiving messages
-square_printing_actor()
+# An actor which executes deliver using messages in its inbox and executes end_scene on completion
+my_actor = SupportingActor(receive = deliver, callback = end_scene, name = 'Michael')
 
-for i in xrange(1,11):
-   square_printing_actor.inbox.put(i)
+# Put messages in inbox of my_actor.
+my_actor.inbox.put("You were only supposed to blow the bloody doors off!")
+my_actor.inbox.put("She was only sixteen years old!")
+my_actor.inbox.put("Not many people know that!")
+
+# Call my_actor to commence inbox processing.
+my_actor()
+
+# Tell my_actor that it is complete when its inbox is empty.
+my_actor.cut()
 
 # Output
 # ------
-# Bob says 1 squared is: 1
-# Bob says 2 squared is: 4
-# Bob says 3 squared is: 9
-# Bob says 4 squared is: 16
-# Bob says 5 squared is: 25
-# Bob says 6 squared is: 36
-# Bob says 7 squared is: 49
-# Bob says 8 squared is: 64
-# Bob says 9 squared is: 81
-# Bob says 10 squared is: 100
-# Inbox processing done.
+# Michael says, "You were only supposed to blow the bloody doors off!"
+# Michael says, "She was only sixteen years old!"
+# Michael says, "Not many people know that!"
+# End scene.
 
 More Horsepower
 ~~~~~~~~~~~~~~~
 
 from caine import SupportingCast
 import time
+import random
 
-def print_square(message, actor_attributes):
-   import random
-   time.sleep(random.randint(2,4))
-   print "Actor #%s says %s squared is: %s" %(actor_attributes['actor_id'], message, message**2)
+def wait_deliver(message, actor_attributes):
+    wait_secs = random.randint(1,5)
+    time.sleep(wait_secs)
+    print 'Actor #%s waited %s seconds to say, "%s"' %(actor_attributes['actor_id'], wait_secs, message)
 
-square_printing_cast = SupportingCast(receive = print_square, timeout = 5, num = 3)
-
-# Call an instance of SupportingCast to commence receiving messages with each of its actors
-square_printing_cast() 
+my_cast = SupportingCast(receive = wait_deliver, callback = end_scene, num = 3)
 
 for i in xrange(1,11):
-   square_printing_cast.inbox.put(i)
+    my_cast.inbox.put("I got message #%s." %(i))
+
+my_cast()
+my_cast.cut()
 
 # Output
 # ------
-# Actor #2 says 3 squared is: 9
-# Actor #0 says 2 squared is: 4
-# Actor #1 says 1 squared is: 1
-# Actor #1 says 6 squared is: 36
-# Actor #2 says 4 squared is: 16
-# Actor #0 says 5 squared is: 25
-# Actor #1 says 7 squared is: 49
-# Actor #2 says 8 squared is: 64
-# Actor #1 says 10 squared is: 100
-# Actor #0 says 9 squared is: 81
-# Inbox processing done.
+# Actor #0 waited 2 seconds to say, "I got message #0."
+# Actor #0 waited 1 seconds to say, "I got message #3."
+# Actor #1 waited 5 seconds to say, "I got message #1."
+# Actor #2 waited 5 seconds to say, "I got message #2."
+# Actor #0 waited 3 seconds to say, "I got message #4."
+# Actor #1 waited 2 seconds to say, "I got message #5."
+# Actor #2 waited 2 seconds to say, "I got message #6."
+# Actor #0 waited 3 seconds to say, "I got message #7."
+# Actor #2 waited 2 seconds to say, "I got message #9."
+# Actor #1 waited 2 seconds to say, "I got message #8."
+# End scene.
 
 Other Functions
 ~~~~~~~~~~~~~~~
 
-square_printing_cast() 
+for i in xrange(3):
+    my_cast.inbox.put("I got this message in time to say it!")
 
-for i in xrange(11,21):
-   square_printing_cast.inbox.put(i)
+my_cast()
+time.sleep(6)
 
-square_printing_cast.cut() # Items put in inbox after this will not be processed
+# Items put in inbox after this will not be processed
+my_cast.cut(immediate = True)
 
-# These items will not be processed and will remain in the inbox
-for i in xrange(21,31):
-   square_printing_cast.inbox.put(i)
+for i in xrange(3):
+    my_cast.inbox.put("I did not get this message in time to say it!")
 
 # Output
 # ------
-# Actor #1 says 11 squared is: 121
-# Actor #0 says 12 squared is: 144
-# Actor #2 says 13 squared is: 169
-# Actor #1 says 14 squared is: 196
-# Actor #0 says 15 squared is: 225
-# Actor #2 says 16 squared is: 256
-# Actor #1 says 17 squared is: 289
-# Actor #0 says 18 squared is: 324
-# Actor #2 says 19 squared is: 361
-# Actor #1 says 20 squared is: 400
-# Inbox processing done.
+# Actor #2 waited 2 seconds to say, "I got this message in time to say it!"
+# Actor #0 waited 4 seconds to say, "I got this message in time to say it!"
+# Actor #1 waited 4 seconds to say, "I got this message in time to say it!"

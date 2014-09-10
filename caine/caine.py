@@ -4,6 +4,169 @@ import time
 import functools
 import inspect
 
+class SupportingActor(object):
+    """
+    Data structure with operations for receiving objects put in its inbox.
+
+    Parameters
+    __________
+    timeout : int or None, default None
+        If not None, the number of seconds between message receptions before callback is executed
+    maxsize : int or None, default None
+        If not None, the maximum size of the inbox
+    kwargs : object
+        Additional keyword arguments are set as attributes
+    """
+
+    def __init__(self, timeout = None, maxsize = None, **kwargs):
+        self.inbox = multiprocessing.Manager().Queue(maxsize)           # Set up a task queue with maximum size that can be inserted into and read by multiple processes.
+        self.timeout = timeout                                          # The number of seconds before the process times out.
+        self.receive = _receive                                         # The receive function, by default is the global private method _receive.
+        self.callback = _callback                                       # The callback function, by default is the global private method _callback.
+        self.handle = _handle                                           # The handle function, by default is the global private method _handle.
+        self._process = None                                            # The private _process initially is None.
+        self._running_flag = multiprocessing.Value('i', 0)              # A flag - 1 : inbox reception is ongoing, 0 : inbox reception ended naturally, -1 : inbox reception was cut immediately
+        self._process_func = _listen_active                             # _listen_active is the target function of the inbox reception process.
+        for nm, val in kwargs.iteritems(): setattr(self, nm, val)       # All other collected keyword arguments are set as attributes.
+
+    @property
+    def instance_attributes(self):
+        """
+        dict with public atributes of instance
+        """
+        instance_attributes = {}                                                                                    # Set up a dictionary for storing attributes.
+        attr_dicts =  [self.__dict__] + [parent_class.__dict__ for parent_class in inspect.getmro(self.__class__)]  # Get a list of dictionaries with attributes with order identical to method resolution.
+        for attr_dict in attr_dicts:                                                                                # For each dictionary with attributes,
+            for nm, val in attr_dict.iteritems():                                                                   # for each attribute name, value pair
+                if (nm == 'instance_attributes') or (nm.startswith('_')) or nm in instance_attributes:              # if the name is instance_attributes, starts with an underscore (is private), or is already represented
+                    continue                                                                                        # do nothing with this name, value pair,
+                instance_attributes[nm] = val                                                                       # otherwise store the attribute in instance_attributes.
+        return instance_attributes                                                                                  # Return instance_attributes on completion.
+
+    @property
+    def _process_args(self):
+        return [self._running_flag, self.instance_attributes] # pass these arguments to _listen_active
+
+    @property
+    def process(self):
+        """
+        multiprocessing.Process
+        """
+        if self._process is None:                                                                               # If _process is None,
+            self._process = multiprocessing.Process(target = self._process_func, args = self._process_args)     # set it as a multiprocessing.Process running _process_func and using the arguments _process_args
+        return self._process                                                                                    # return the private _process as public process.
+    
+    def cut(self, immediate = False):
+        """
+        ends inbox processing
+
+        Parameters
+        __________
+        immediate : boolean, default False
+            If True, inbox processing is ended in place, otherwise inbox processing continues until queue is empty.
+        """
+        if immediate: self._running_flag.value = -1     # Breaks inbox reception loop
+        else: self.inbox.put(Cut)                       # Inbox processing terminates when inbox is empty
+
+    def __call__(self):
+        """
+        begin receiving messages put in inbox
+        """
+        if self._process is not None:                           # If there is an ongoing private process,
+            print "Cutting existing process..."                 # notify the user that the existing process is being cut immediately,
+            self.cut(immediate = True)                          # cut that process immediately,
+            while self._process.is_alive(): time.sleep(.1)      # wait for that process to die,
+            print "Existing process has been cut."              # then notify the user that the existing process has been cut.
+        self._process = None                                    # Set the private _process as None, such that a new multiprocessing.Process is generated when self.process is used,
+        self.process.start()                                    # and start the new public process.
+
+class SupportingCast(SupportingActor):
+    """
+    Data structure with operations for receiving objects put in its inbox using multiple caine.SupportingActor processes
+
+    Parameters
+    __________
+    timeout : int or None, default None
+        If not None, the number of seconds between message receptions before callback is executed
+    num : int, default 1
+        Number of actor processes
+    kwargs : object
+        Additional keyword arguments are set as attributes
+    """
+    def __init__(self, num = 1, **kwargs):
+        SupportingActor.__init__(self, **kwargs)                                        # Inherit the attributes, methods of SupportingActor.
+        self.handle = _handle_direct                                                    # By default, SupportingCast.handle is the global method _handle_direct.
+        self._process_func = _direct                                                    # _direct is the target function of the inbox reception process.
+        self._num_actor_to_add = multiprocessing.Value('i', num)                        # To start, there are num actors to add.
+        self._num_actors_added = multiprocessing.Value('i', 0)                          # To start, zero actors have been added.
+        self._add = functools.partial(_add, num_actor_to_add = self._num_actor_to_add)  # This instance's _add method refers to the global method _add where the keyword argument num_actor_to_add refers to the instance's _num_actor_to_add
+
+    @property
+    def num(self):
+        return self._num_actor_to_add.value + self._num_actors_added.value # num refers to the number of actors to add, plus the number of actors added
+
+    def add(self, num = 1):
+        """
+        adds actor(s) to process inbox
+        
+        Parameters
+        __________
+        num : int, default 1
+            The number of actors to add
+        """
+        self._add(num = num)
+
+    def remove(self, num = 1):
+        """
+        removes existing actor(s)
+        
+        Parameters
+        __________
+        num : int, default 1
+            The number of actors to remove
+        """
+        self._add(num = -num)
+
+    @property
+    def _process_args(self):
+        return [self._running_flag, self._num_actor_to_add, self._num_actors_added, self.instance_attributes] # pass these arguments to _direct
+
+class Collector(SupportingActor):
+    """
+    Data structure with operations for collecting objects put in its inbox.
+    Note: Collector.process may remain alive as long as Collector.collected is not used.
+
+    Parameters
+    __________
+    timeout : int or None, default None
+        If not None, the number of seconds between message receptions before callback is executed
+    kwargs : object
+        Additional keyword arguments are set as attributes
+    """
+    def __init__(self, **kwargs):
+        self.collect = _collect                                 # By default, Collector.collect is the global method _collect
+        SupportingActor.__init__(self, **kwargs)                # Inherit the attributes, methods of SupportingActor.
+        self._outbox = multiprocessing.Manager().Queue(1)       # A queue of maximum size 1 is used to receive collected messages upon completion.
+        self._collected = None                                  # There are no collected messages to start.
+
+    @property
+    def _process_args(self):
+        return [self._running_flag, self.instance_attributes, self._outbox] # pass these arguments to _listen_active
+
+    @property
+    def collected(self):
+        """
+        all collected messages if inbox processing is complete, otherwise None
+        """
+        if not self._outbox.empty():                # If there's data in the outbox,
+            self._collected = self._outbox.get()    # overwrite the private attribute using the data in the outbox,
+        return self._collected                      # return the private attribute holding the collected messages.
+
+class Cut:
+    """
+    shuts down inbox reception when put in inbox of SupportingActor or SupportingCast instance
+    """
+
 def _receive(message, instance_attributes):
     """
     method called on messages put in inbox, requires implementation
@@ -30,12 +193,12 @@ def _timeout(signum, frame, running_flag):
     """
     running_flag.value = 0
 
-def _listen_active(running_flag, instance_attributes, pipe_collect = None):
+def _listen_active(running_flag, instance_attributes, collect_outbox = None):
     """
     listens for incoming messages, executes callback when inbox reception complete, executes handle when exception raised
     """
-    running_flag.value = 1                                  # 1 : listening process is ongoing, 0 : listening process ended naturally, -1 : listening process was cut immediately
-    if pipe_collect is not None: prior_collected = None     # We keep track of previously collected messages if pipe_collect is not None.
+    running_flag.value = 1                                  # Flag inbox reception as ongoing.
+    if collect_outbox is not None: prior_collected = None   # We keep track of previously collected messages if collect_outbox is not None.
     
     # Use a timeout if timeout is an integer, otherwise do not.
     # If a timeout is being used, set an alarm to run _timeout after timeout seconds.
@@ -56,7 +219,7 @@ def _listen_active(running_flag, instance_attributes, pipe_collect = None):
             continue                                                                                                # start the while loop again to ensure that the listening process should continue.
         
         try:                                                                                                        # With a non-Cut message,
-            if pipe_collect is not None:                                                                            # if there is a pipe to collect messages,
+            if collect_outbox is not None:                                                                          # if there is an outbox to collect messages,
                 prior_collected = instance_attributes['collect'](message, prior_collected, instance_attributes)     # try executing the collect function on the message, the previously collected messages and the instance attributes
             else:                                                                                                   # otherwise,
                 instance_attributes['receive'](message, instance_attributes)                                        # execute the receive function on the message and the instance attributes.
@@ -64,7 +227,7 @@ def _listen_active(running_flag, instance_attributes, pipe_collect = None):
         except Exception as exc: instance_attributes['handle'](exc, message, instance_attributes)                   # If an exception is raised, pass it, the message, and the instance atributes to handle.
     
     if running_flag.value != -1:                                                                                    # If running_flag does not have a value of -1 indicating the process was not cut immediately,
-        if pipe_collect is not None: pipe_collect.send(prior_collected)                                             # send the previously collected messages through the pipe if appropriate,
+        if collect_outbox is not None: collect_outbox.put(prior_collected)                                          # put the previously collected messages in the outbox if appropriate,
         instance_attributes['callback'](instance_attributes)                                                        # and execute callback.
 
 def _handle_direct(exc, message, actor_id, actors, instance_attributes):
@@ -109,7 +272,7 @@ def _direct(running_flag, num_actor_to_add, num_actor_added, instance_attributes
     """
     cast and direct multiple actors receiving messages from a common inbox
     """
-    running_flag.value = 1                                  # 1 : inbox reception is ongoing, 0 : inbox reception ended naturally, -1 : inbox reception was cut immediately
+    running_flag.value = 1                                  # Flag inbox reception as ongoing.
     del instance_attributes['num']                          # The num value for the instance of supporting cast may change so it is dropped as an attribute
     message_received_flag = multiprocessing.Value('i', 0)   # 1 : some actor recently received a message, 0 : actor has not received a message since last checked
     handling_error_flag = multiprocessing.Value('i', 0)     # 1 : _direct process is currently handling an error, 0 :  _direct process is not currently handling an error
@@ -142,12 +305,14 @@ def _direct(running_flag, num_actor_to_add, num_actor_added, instance_attributes
                     actors[n]['process'].start()                                                    # The new actor process is started.
                     num_actor_to_add.value -= 1                                                     # The number of actors to add decreases by 1.
                     num_actor_added.value += 1                                                      # The number of actors added increases by 1.
-                elif num_actor_to_add.value < 0:                                                    # If the number of actors to add is negative remove an actor
-                    actors[n-1]['listening_flag'].value = 0                                         # by toggling off its listening flag,
-                    while actors[n-1]['process'].is_alive(): time.sleep(.1)                         # waiting for the process to stop
-                    del actors[n-1]                                                                 # then removing the actor from the actors dictionary.
-                    num_actor_to_add.value += 1                                                     # The number of actors to add increases by 1 (toward zero).
-                    num_actor_added.value -= 1                                                      # The number of actors added decreases by 1.
+                elif num_actor_to_add.value < 0:                                                    # If the number of actors to add is negative
+                    if n <= 0: num_actor_to_add.value += 1                                          # but there are zero actors, increase the number of actors to add by 1 (toward zero), but make no other changes.
+                    else:                                                                           # Otherwise, remove an actor
+                        actors[n-1]['listening_flag'].value = 0                                     # by toggling off its listening flag,
+                        while actors[n-1]['process'].is_alive(): time.sleep(.1)                     # waiting for its process to stop
+                        del actors[n-1]                                                             # then removing the actor from the actors dictionary.
+                        num_actor_to_add.value += 1                                                 # The number of actors to add increases by 1 (toward zero).
+                        num_actor_added.value -= 1                                                  # The number of actors added decreases by 1.
                 signal.alarm(instance_attributes['timeout'])                                        # Reset the alarm if appropriate
                 continue                                                                            # and jump to the top of the loop.
 
@@ -191,164 +356,3 @@ def _collect(new_message, prior_collected, instance_attributes):
     returns collected messages when passed a new message and prior messages, requires implementation
     """
     raise NotImplemented()
-
-class SupportingActor(object):
-    """
-    Data structure with operations for receiving objects put in its inbox.
-
-    Parameters
-    __________
-    timeout : int or None, default None
-        If not None, the number of seconds between message receptions before callback is executed
-    kwargs : object
-        Additional keyword arguments are set as attributes
-    """
-
-    def __init__(self, timeout = None, **kwargs):
-        self.inbox = multiprocessing.Manager().Queue()
-        self.timeout = timeout
-        self._process = None
-        self.receive = _receive
-        self.callback = _callback
-        self.handle = _handle
-        self._running_flag = multiprocessing.Value('i', 0)
-        self._process_func = _listen_active
-        for nm, val in kwargs.iteritems(): setattr(self, nm, val)
-
-    @property
-    def _process_args(self):
-        return [self._running_flag, self.instance_attributes]
-
-    @property
-    def instance_attributes(self):
-        """
-        dict with atributes of instance
-        """
-        instance_attributes = {}
-        attr_dicts =  [self.__dict__] + [parent_class.__dict__ for parent_class in inspect.getmro(self.__class__)]
-        for attr_dict in attr_dicts:
-            for nm, val in attr_dict.iteritems():
-                if (nm == 'instance_attributes') or (nm.startswith('_')) or nm in instance_attributes:
-                    continue
-                instance_attributes[nm] = val
-        return instance_attributes
-
-    @property
-    def process(self):
-        """
-        multiprocessing.Process
-        """
-        if self._process is None: 
-            self._process = multiprocessing.Process(target = self._process_func, args = self._process_args)
-        return self._process
-    
-    def cut(self, immediate = False):
-        """
-        ends inbox processing
-
-        Parameters
-        __________
-        immediate : boolean, default False
-            If True, inbox processing is ended in place, otherwise inbox processing continues until queue is empty.
-        """
-        if immediate: self._running_flag.value = -1     # Breaks inbox reception loop
-        else: self.inbox.put(Cut)                       # Inbox processing terminates when inbox is empty
-
-    def __call__(self):
-        """
-        begin receiving messages put in inbox
-        """
-        if self._process is not None:
-            print "Ending existing process..."
-            self.cut(immediate = True)
-            while self._process.is_alive(): time.sleep(.1)
-            print "Existing process ended."
-        self._process = None
-        self.process.start()
-
-class SupportingCast(SupportingActor):
-    """
-    Data structure with operations for receiving objects put in its inbox using multiple caine.SupportingActor processes
-
-    Parameters
-    __________
-    timeout : int or None, default None
-        If not None, the number of seconds between message receptions before callback is executed
-    num : int, default 1
-        Number of actor processes
-    kwargs : object
-        Additional keyword arguments are set as attributes
-    """
-    def __init__(self, num = 1, **kwargs):
-        SupportingActor.__init__(self, **kwargs)
-        self.handle = _handle_direct
-        self._process_func = _direct
-        self._num_actor_to_add = multiprocessing.Value('i', num)                        # To start there are num actors to add
-        self._num_actors_added = multiprocessing.Value('i', 0)                          # and zero actors have been added
-        self._add = functools.partial(_add, num_actor_to_add = self._num_actor_to_add)  # we pass the num_actor_to_add value ahead of time to _add
-
-    @property
-    def num(self):
-        return self._num_actor_to_add.value + self._num_actors_added.value
-
-    def add(self, num = 1):
-        """
-        adds actor(s) to process inbox
-        
-        Parameters
-        __________
-        num : int, default 1
-            The number of actors to add
-        """
-        self._add(num = num)
-
-    def remove(self, num = 1):
-        """
-        removes existing actor(s)
-        
-        Parameters
-        __________
-        num : int, default 1
-            The number of actors to remove
-        """
-        self._add(num = -num)
-
-    @property
-    def _process_args(self):
-        return [self._running_flag, self._num_actor_to_add, self._num_actors_added, self.instance_attributes]
-
-class Collector(SupportingActor):
-    """
-    Data structure with operations for collecting objects put in its inbox.
-    Note: Collector.process may remain alive as long as Collector.collected is not used.
-
-    Parameters
-    __________
-    timeout : int or None, default None
-        If not None, the number of seconds between message receptions before callback is executed
-    kwargs : object
-        Additional keyword arguments are set as attributes
-    """
-    def __init__(self, **kwargs):
-        self.collect = _collect
-        SupportingActor.__init__(self, **kwargs)
-        self._pipe_in, self._pipe_out = multiprocessing.Pipe()
-        self._collected = None
-
-    @property
-    def _process_args(self):
-        return [self._running_flag, self.instance_attributes, self._pipe_in]
-
-    @property
-    def collected(self):
-        """
-        all collected messages if inbox processing is complete, otherwise None
-        """
-        if self._pipe_out.poll():                       # If there's data in the output end of the pipe,
-            self._collected = self._pipe_out.recv()     # overwrite the private attribute using the data in the pipe,
-        return self._collected                          # return the private attribute holding the collected messages.
-
-class Cut:
-    """
-    shuts down inbox reception when put in inbox of SupportingActor or SupportingCast instance
-    """

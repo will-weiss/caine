@@ -2,16 +2,19 @@
 
 from caine import SupportingActor
 
-def deliver(line, instance_attributes):
-    print '%s says, "%s"' %(instance_attributes['name'], line)
+# Print the name attribute of the instance and the message
+def deliver(message, instance_attributes):
+    print '%s says, "%s"' %(instance_attributes['name'], message)
 
+# Print end scene
 def end_scene(instance_attributes):
     print "End scene."
 
-# An actor which executes deliver using messages in its inbox and executes end_scene on completion
+# Create my_actor which executes deliver using messages in its inbox 
+# and executes end_scene on successful completion
 my_actor = SupportingActor(receive = deliver, callback = end_scene, name = 'Michael')
 
-# Call my_actor to commence inbox processing.
+# Begin receiving messages
 my_actor()
 
 # Put messages in inbox of my_actor.

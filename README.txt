@@ -25,7 +25,7 @@ def deliver(line, instance_attributes):
 def end_scene(instance_attributes):
     print "End scene."
 
-# An actor which executes deliver using messages in its inbox and executes end_scene on completion
+# Create my_actor which executes deliver using messages in its inbox and executes end_scene on completion
 my_actor = SupportingActor(receive = deliver, callback = end_scene, name = 'Michael')
 
 # Call my_actor to commence inbox processing.

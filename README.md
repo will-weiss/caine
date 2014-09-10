@@ -11,17 +11,19 @@ supporting actors process queues concurrently
 
 <pre><code>from caine import SupportingActor
 
-def deliver(line, instance_attributes):
-    print '%s says, "%s"' %(instance_attributes['name'], line)
+# Print the name attribute of the instance and the message
+def deliver(message, instance_attributes):
+    print '%s says, "%s"' %(instance_attributes['name'], message)
 
+# Print end scene
 def end_scene(instance_attributes):
     print "End scene."
 
-# An actor which executes deliver using messages in its inbox 
-# and executes end_scene on completion
+# Create my_actor which executes deliver using messages in its inbox 
+# and executes end_scene on successful completion
 my_actor = SupportingActor(receive = deliver, callback = end_scene, name = 'Michael')
 
-# Call my_actor to commence inbox processing.
+# Begin receiving messages
 my_actor()
 
 # Put messages in inbox of my_actor.
@@ -45,17 +47,17 @@ my_actor.cut()</code></pre>
 import time
 import random
 
-num_actors = 3 # SupportingCast will have 3 actors
+# SupportingCast will have 3 actors
+num_actors = 3 
 
-def wait_deliver(message, actor_attributes):
+# Wait a random number of seconds, then print stuff
+def wait_rand_deliver(message, actor_attributes):
     wait_secs = random.randint(1,5)
     time.sleep(wait_secs)
     print 'Actor #%s waited %s seconds to say, "%s"' %(actor_attributes['actor_id'], wait_secs, message)
 
-def end_scene(instance_attributes):
-    print "End scene."
-
-my_cast = SupportingCast(receive = wait_deliver, callback = end_scene, num = num_actors)
+# Create my_cast with 3 actors
+my_cast = SupportingCast(receive = wait_rand_deliver, callback = end_scene, num = num_actors)
 
 my_cast()
 
@@ -84,18 +86,30 @@ my_cast.cut()</code></pre>
 
 # A function which synthesizes a new message and prior messages
 def print_even_collect_odd(new_number, collected_odds, instance_attributes):
-    collected_odds = collected_odds if collected_odds is not None else []
+    
+    # Initially there are no prior messages so set collected_odds to be an empty list if collected_odds is None
+    if collected_odds is None:
+        collected_odds = []
+    
+    # Print even numbers
     if new_number % 2 == 0: 
         print "I got the even number: %s" %(new_number)
+    
+    # Append odd numbers to collected_odds
     else: 
         collected_odds.append(new_number)
+    
+    # Return collected_odds
     return collected_odds
 
 # A function called on completion
 def print_collected(instance_attributes):
     print "I collected these odd numbers: %s" %(instance_attributes['collected'])
 
+# Create my_collector which collects messages using print_even_collect_odd
+# and executes print_collected on successful completion
 my_collector = Collector(collect = print_even_collect_odd, callback = print_collected)
+
 my_collector()
 
 for i in xrange(10):
@@ -116,15 +130,28 @@ my_collector.cut()</code></pre>
 
 ##### Immediate Cut
 
-<pre><code>for i in xrange(3):
+<pre><code># maximum number of seconds an actor will wait before delivering a message
+max_wait = 5
+
+def wait_rand_deliver(message, actor_attributes):
+    wait_secs = random.randint(1,max_wait)
+    time.sleep(wait_secs)
+    print 'Actor #%s waited %s seconds to say, "%s"' %(actor_attributes['actor_id'], wait_secs, message)
+
+my_cast = SupportingCast(receive = wait_rand_deliver, callback = end_scene, num = 3)
+
+for i in xrange(3):
     my_cast.inbox.put("I got this message in time to say it!")
 
 my_cast()
-time.sleep(6)
 
-# Items put in inbox after this will not be processed and callback will not be executed
-my_cast.cut(immediate = True) 
+# Wait longer than maximum time an actor will take a process a message
+time.sleep(max_wait + 1)
 
+# Inbox processing is cut immediately
+my_cast.cut(immediate = True)
+
+# These messages will not be processed
 for i in xrange(3):
     my_cast.inbox.put("I did not get this message in time to say it!")</code></pre>
 
@@ -136,28 +163,31 @@ for i in xrange(3):
 
 ##### Adding Actors to Cast
 
-<pre><code>original_actor_count = 3 # The cast starts with 3 actors
-add_actor_count = 3      # The cast will have 3 actors added to it
+<pre><code># The cast starts with 2 actors
+original_actor_count = 2 
 
-def deliver(message_num, actor_attributes):
+# The cast will have 3 actors added to it
+add_actor_count = 3      
+
+def wait1_deliver(message_num, actor_attributes):
     time.sleep(1)
-    if actor_attributes['actor_id'] &lt; original_actor_count:
+    if actor_attributes['actor_id'] < original_actor_count:
         print 'I am an actor from the original cast! I got message #%s' %(message_num)
     else:
         print 'I am an actor created later! I got message #%s' %(message_num)
 
-def end_scene(instance_attributes):
-    print "End scene."
+# Create my_cast with 2 actors
+my_cast = SupportingCast(receive = wait1_deliver, callback = end_scene, num = original_actor_count)
 
-my_cast = SupportingCast(receive = deliver, callback = end_scene, num = original_actor_count)
 my_cast()
 
-for i in xrange(3):
+for i in xrange(original_actor_count):
     my_cast.inbox.put(i)
 
+# Add 3 actors to my_cast
 my_cast.add(add_actor_count)
 
-for i in xrange(3,6):
+for i in xrange(original_actor_count, original_actor_count + add_actor_count):
     my_cast.inbox.put(i)
 
 my_cast.cut()</code></pre>

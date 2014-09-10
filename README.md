@@ -171,7 +171,7 @@ add_actor_count = 3
 
 def wait1_deliver(message_num, actor_attributes):
     time.sleep(1)
-    if actor_attributes['actor_id'] < original_actor_count:
+    if actor_attributes['actor_id'] &lt; original_actor_count:
         print 'I am an actor from the original cast! I got message #%s' %(message_num)
     else:
         print 'I am an actor created later! I got message #%s' %(message_num)

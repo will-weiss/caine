@@ -224,7 +224,8 @@ def _listen_active(running_flag, instance_attributes, collect_outbox = None):
             if collect_outbox is not None:                                                                          # if there is an outbox to collect messages,
                 prior_collected = instance_attributes['collect'](message, prior_collected, instance_attributes)     # try executing the collect function on the message, the previously collected messages and the instance attributes
             else:                                                                                                   # otherwise,
-                instance_attributes['receive'](message, instance_attributes)                                        # execute the receive function on the message and the instance attributes.
+                new_attrs = instance_attributes['receive'](message, instance_attributes)                            # execute the receive function on the message and the instance attributes.
+                if new_attrs is not None: instance_attributes.update(new_attrs)
             if use_timeout : signal.alarm(instance_attributes['timeout'])                                           # if successful, reset the alarm if appropriate. 
         except Exception as exc: instance_attributes['handle'](exc, message, instance_attributes)                   # If an exception is raised, pass it, the message, and the instance atributes to handle.
     

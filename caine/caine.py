@@ -265,7 +265,9 @@ def _listen_passive(inbox, receive, listening_flag, message_received_flag, handl
         except:                                                             # If any of the above fails
             continue                                                        # start the while loop again to ensure that the listening process should continue.
         
-        try: receive(message, actor_attributes)                             # With a non-Cut message try executing the receive function on the message.
+        try: 
+            new_attrs = receive(message, actor_attributes)                  # With a non-Cut message try executing the receive function on the message.
+            if new_attrs is not None: actor_attributes.update(new_attrs)
         except Exception as exc:                                            # If an exception is raised:
             error_queue.put((exc, message, actor_attributes['actor_id']))   # put it, the message, and the actor_id in the error queue,
             handling_error_flag.value = 1                                   # and toggle the flag indicating that an error as being handled.

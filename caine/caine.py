@@ -224,7 +224,8 @@ def _listen_active(running_flag, instance_attributes, collect_outbox = None):
             if collect_outbox is not None:                                                                          # if there is an outbox to collect messages,
                 prior_collected = instance_attributes['collect'](message, prior_collected, instance_attributes)     # try executing the collect function on the message, the previously collected messages and the instance attributes
             else:                                                                                                   # otherwise,
-                instance_attributes['receive'](message, instance_attributes)                                        # execute the receive function on the message and the instance attributes.
+                new_attrs = instance_attributes['receive'](message, instance_attributes)                            # execute the receive function on the message and the instance attributes.
+                if new_attrs is not None: instance_attributes.update(new_attrs)                                     # If receive returns any new attributes, update the instance attributes.
             if use_timeout : signal.alarm(instance_attributes['timeout'])                                           # if successful, reset the alarm if appropriate. 
         except Exception as exc: instance_attributes['handle'](exc, message, instance_attributes)                   # If an exception is raised, pass it, the message, and the instance atributes to handle.
     
@@ -265,7 +266,9 @@ def _listen_passive(inbox, receive, listening_flag, message_received_flag, handl
         except:                                                             # If any of the above fails
             continue                                                        # start the while loop again to ensure that the listening process should continue.
         
-        try: receive(message, actor_attributes)                             # With a non-Cut message try executing the receive function on the message.
+        try: 
+            new_attrs = receive(message, actor_attributes)                  # With a non-Cut message try executing the receive function on the message.
+            if new_attrs is not None: actor_attributes.update(new_attrs)    # If receive returns any new attributes, update the instance attributes.
         except Exception as exc:                                            # If an exception is raised:
             error_queue.put((exc, message, actor_attributes['actor_id']))   # put it, the message, and the actor_id in the error queue,
             handling_error_flag.value = 1                                   # and toggle the flag indicating that an error as being handled.

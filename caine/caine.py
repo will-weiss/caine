@@ -95,7 +95,7 @@ class SupportingCast(SupportingActor):
     """
     def __init__(self, num = 1, **kwargs):
         SupportingActor.__init__(self, **kwargs)                                        # Inherit the attributes, methods of SupportingActor.
-        self.handle = _handle_direct                                                    # By default, SupportingCast.handle is the global method _handle_direct.
+        if handle not in kwargs : self.handle = _handle_direct                          # By default, SupportingCast.handle is the global method _handle_direct.
         self._process_func = _direct                                                    # _direct is the target function of the inbox reception process.
         self._num_actor_to_add = multiprocessing.Value('i', num)                        # To start, there are num actors to add.
         self._num_actors_added = multiprocessing.Value('i', 0)                          # To start, zero actors have been added.

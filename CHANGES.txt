@@ -19,3 +19,4 @@ v0.1.7, 2014-09-10 -- Improved docs, examples.
 v0.1.8, 2014-09-10 -- Doc fix.
 v0.1.9, 2014-09-16 -- Return of receive can alter attributes.
 v0.1.10, 2014-09-16 -- Altering attributes done safely.
+v0.1.11, 2014-09-17 -- SupportingCast.handle can be properly subclassed.
